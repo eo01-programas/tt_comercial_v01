@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="description" content="Dinámica grupal con quiz interactivo — compite con tu equipo, personaliza tu nombre e icono y gana el premio grupal."/>
+  <title>DinámicaQuiz | Competencia Grupal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#08081a;--bg2:#10103a;
+      --glass:rgba(255,255,255,.045);--glass-b:rgba(255,255,255,.09);
+      --blue:#00d4ff;--purple:#7c3aed;--gold:#ffd700;
+      --green:#00e87a;--red:#ff4d6d;
+      --txt:#fff;--txt2:rgba(255,255,255,.65);--txt3:rgba(255,255,255,.35);
+      --r:16px;--ease:cubic-bezier(.4,0,.2,1);
+    }
+    body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+    body::before{
+      content:'';position:fixed;inset:0;z-index:-2;
+      background:
+        radial-gradient(ellipse 60% 40% at 15% 15%,rgba(124,58,237,.18) 0%,transparent 60%),
+        radial-gradient(ellipse 50% 40% at 85% 85%,rgba(0,212,255,.12) 0%,transparent 60%),
+        linear-gradient(160deg,#08081a 0%,#10103a 60%,#08081a 100%);
+    }
+    .orb{position:fixed;border-radius:50%;filter:blur(80px);animation:orb-drift 18s ease-in-out infinite alternate;z-index:-1;pointer-events:none}
+    .orb1{width:420px;height:420px;top:-100px;left:-100px;background:rgba(124,58,237,.12);animation-duration:20s}
+    .orb2{width:300px;height:300px;bottom:-80px;right:-80px;background:rgba(0,212,255,.10);animation-duration:15s;animation-delay:-8s}
+    @keyframes orb-drift{from{transform:translate(0,0) scale(1)}to{transform:translate(40px,30px) scale(1.08)}}
+
+    .view{display:none;min-height:100vh;animation:fadeUp .45s var(--ease)}
+    .view.active{display:flex;flex-direction:column}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
+    .card{background:var(--glass);border:1px solid var(--glass-b);border-radius:var(--r);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border-radius:12px;border:none;outline:none;font-family:'Outfit',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .25s var(--ease);white-space:nowrap}
+    .btn-primary{background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff;box-shadow:0 4px 22px rgba(124,58,237,.38)}
+    .btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 32px rgba(124,58,237,.55)}
+    .btn-ghost{background:var(--glass);border:1px solid var(--glass-b);color:var(--txt)}
+    .btn-ghost:hover:not(:disabled){background:rgba(255,255,255,.09);border-color:var(--blue)}
+    .btn-sm{padding:8px 14px;font-size:.85rem;border-radius:9px}
+    .btn:disabled{opacity:.4;cursor:not-allowed}
+    .btn-full{width:100%}
+
+    .lbl{display:block;font-size:.8rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--txt2);margin-bottom:8px}
+    .inp{width:100%;padding:14px 18px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:#fff;font-family:'Outfit',sans-serif;font-size:1rem;outline:none;transition:all .25s var(--ease)}
+    .inp:focus{border-color:var(--blue);background:rgba(0,212,255,.05);box-shadow:0 0 0 3px rgba(0,212,255,.12)}
+    .inp::placeholder{color:var(--txt3)}
+
+    .prog-track{width:100%;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+    .prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--purple),var(--blue));transition:width .55s var(--ease)}
+
+    .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:50px;font-size:.75rem;font-weight:700}
+    .badge-blue  {background:rgba(0,212,255,.12); color:var(--blue);  border:1px solid rgba(0,212,255,.25)}
+    .badge-gold  {background:rgba(255,215,0,.12); color:var(--gold);  border:1px solid rgba(255,215,0,.25)}
+    .badge-green {background:rgba(0,232,122,.12); color:var(--green); border:1px solid rgba(0,232,122,.25)}
+    .badge-red   {background:rgba(255,77,109,.12);color:var(--red);   border:1px solid rgba(255,77,109,.25)}
+
+    .spin{width:36px;height:36px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--blue);border-radius:50%;animation:spin .75s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:48px;color:var(--txt2);font-size:.95rem}
+
+    #toasts{position:fixed;bottom:24px;right:24px;z-index:9000;display:flex;flex-direction:column;gap:8px}
+    .toast{padding:13px 18px;border-radius:12px;font-size:.9rem;font-weight:500;max-width:340px;animation:slideIn .3s var(--ease);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+    .toast-info   {background:rgba(10,25,50,.9); border:1px solid rgba(0,212,255,.4); color:var(--blue)}
+    .toast-success{background:rgba(10,40,25,.9); border:1px solid rgba(0,232,122,.4); color:var(--green)}
+    .toast-error  {background:rgba(50,15,25,.9); border:1px solid rgba(255,77,109,.4); color:var(--red)}
+    .toast-warn   {background:rgba(50,40,10,.9); border:1px solid rgba(255,215,0,.4); color:var(--gold)}
+    @keyframes slideIn{from{transform:translateX(110px);opacity:0}to{transform:none;opacity:1}}
+
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(12px);z-index:8000;display:flex;align-items:center;justify-content:center;padding:20px}
+    .modal-box{width:100%;max-width:480px;padding:32px}
+    .hidden{display:none!important}
+
+    .gt    {background:linear-gradient(135deg,var(--purple),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .gt-gold{background:linear-gradient(135deg,#f59e0b,var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+    .hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;background:rgba(8,8,26,.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.07);position:sticky;top:0;z-index:100;flex-shrink:0}
+    .hdr-logo{font-size:1.35rem;font-weight:800}
+    .user-pill{display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--glass);border:1px solid var(--glass-b);border-radius:50px}
+    .avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--blue));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.75rem;flex-shrink:0}
+    .demo-banner{background:rgba(255,215,0,.08);border-bottom:1px solid rgba(255,215,0,.2);padding:8px 32px;font-size:.82rem;color:var(--gold);text-align:center;flex-shrink:0}
+
+    /* ── EMOJI PICKER CATEGORIES ── */
+    .ep-tabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:8px}
+    .ep-tab{padding:6px 12px;border-radius:8px;font-size:.8rem;font-weight:600;background:transparent;border:none;color:var(--txt2);cursor:pointer;transition:all .2s}
+    .ep-tab.active{background:rgba(124,58,237,.25);color:var(--blue)}
+    .ep-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:20px;max-height:160px;overflow-y:auto;padding:6px;background:rgba(0,0,0,.25);border-radius:12px;border:1px solid rgba(255,255,255,.06)}
+    .ep-btn{padding:8px;border-radius:10px;cursor:pointer;font-size:1.45rem;background:rgba(255,255,255,.04);border:2px solid transparent;transition:all .15s;line-height:1;display:flex;align-items:center;justify-content:center}
+    .ep-btn:hover{background:rgba(255,255,255,.14);transform:scale(1.2)}
+    .ep-btn.active{border-color:var(--blue);background:rgba(0,212,255,.2);box-shadow:0 0 12px rgba(0,212,255,.35)}
+
+    /* Preview Card inside Modal */
+    .join-preview-card{background:linear-gradient(135deg,rgba(124,58,237,.15),rgba(0,212,255,.1));border:1px solid rgba(0,212,255,.3);border-radius:16px;padding:18px;text-align:center;margin-bottom:20px;position:relative;overflow:hidden}
+    .join-preview-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at center,rgba(0,212,255,.15) 0%,transparent 70%)}
+    .join-preview-tag{font-size:.75rem;font-weight:700;letter-spacing:.08em;color:var(--blue);text-transform:uppercase;margin-bottom:8px}
+    .join-preview-em{font-size:3.6rem;display:inline-block;margin-bottom:6px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 6px 16px rgba(0,0,0,.4))}
+    .join-preview-name{font-size:1.3rem;font-weight:800;color:#fff}
+
+    /* ── LOGIN ── */
+    #v-login{align-items:center;justify-content:center;padding:24px}
+    .login-wrap{width:100%;max-width:420px}
+    .login-hero{text-align:center;margin-bottom:40px}
+    .login-icon{font-size:4.5rem;display:block;margin-bottom:16px;animation:float 3s ease-in-out infinite}
+    @keyframes float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-8px) scale(1.04)}}
+    .login-hero h1{font-size:2.6rem;font-weight:900}
+    .login-hero p{color:var(--txt2);margin-top:6px}
+    .login-card{padding:36px}
+    .login-card h2{font-size:1.45rem;font-weight:700;margin-bottom:6px}
+    .login-card .sub{color:var(--txt2);font-size:.9rem;margin-bottom:28px}
+    .err-msg{margin-top:14px;color:var(--red);font-size:.88rem;text-align:center;line-height:1.5}
+
+    /* ── GROUPS VIEW ── */
+    #v-groups{flex-direction:column}
+    .g-page-head{padding:28px 32px 14px;display:flex;flex-direction:column;gap:6px}
+    .g-page-head h1{font-size:1.85rem;font-weight:800}
+    .g-page-head p{color:var(--txt2);font-size:.95rem}
+    .groups-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:20px;padding:20px 32px 40px}
+    
+    .g-card{padding:22px;border-radius:18px;transition:all .3s var(--ease);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035)}
+    .g-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--gc,var(--purple))}
+    .g-card:hover:not(.full){transform:translateY(-5px);border-color:rgba(0,212,255,.35);background:rgba(255,255,255,.06);box-shadow:0 12px 32px rgba(0,0,0,.35)}
+    .g-card.full{opacity:.5;cursor:not-allowed}
+
+    .g-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .g-team-num{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3)}
+    
+    .g-hero-wrap{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+    .g-emoji-box{width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:2.2rem;flex-shrink:0;border:1px solid rgba(255,255,255,.08);transition:transform .25s var(--ease)}
+    .g-card:hover:not(.full) .g-emoji-box{transform:scale(1.1)}
+    .g-name{font-size:1.18rem;font-weight:700;line-height:1.3;color:#fff}
+    
+    .g-cap{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .g-cap-bar{flex:1}
+    .g-cap-txt{font-size:.78rem;color:var(--txt3);white-space:nowrap;font-weight:600}
+    
+    .g-members{display:flex;flex-direction:column;gap:5px;margin-bottom:16px;min-height:50px}
+    .g-member{display:flex;align-items:center;gap:7px;font-size:.85rem;color:var(--txt2);background:rgba(255,255,255,.025);padding:4px 10px;border-radius:8px}
+    .g-dot{width:6px;height:6px;border-radius:50%;background:var(--blue);flex-shrink:0}
+
+    .g-actions{display:flex;gap:8px;margin-top:auto}
+    .g-btn-join{flex:1}
+
+    /* ── QUIZ ── */
+    #v-quiz{flex-direction:column}
+    .quiz-body{max-width:740px;width:100%;margin:0 auto;padding:28px 20px 40px;flex:1}
+    .quiz-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .q-counter{font-size:.88rem;color:var(--txt2);font-weight:600}
+    .q-pts{font-size:.88rem;color:var(--gold);font-weight:700}
+    .q-card{padding:28px;margin-bottom:20px}
+    .q-label{font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
+    .q-text{font-size:1.1rem;font-weight:600;line-height:1.6}
+    .q-case-intro{font-size:.95rem;color:var(--txt2);line-height:1.65;margin-bottom:14px;padding:14px;background:rgba(124,58,237,.08);border-radius:10px;border-left:3px solid var(--purple)}
+    .q-question{font-size:1.1rem;font-weight:700}
+    .opts{display:grid;gap:10px}
+    .opt{display:flex;align-items:center;gap:14px;padding:14px 18px;background:rgba(255,255,255,.03);border:2px solid rgba(255,255,255,.07);border-radius:14px;cursor:pointer;font-size:.95rem;transition:all .2s var(--ease)}
+    .opt:hover{background:rgba(124,58,237,.1);border-color:rgba(124,58,237,.4);transform:translateX(4px)}
+    .opt.sel{background:rgba(124,58,237,.18);border-color:var(--purple)}
+    .opt.correct{background:rgba(0,232,122,.12);border-color:var(--green);pointer-events:none}
+    .opt.wrong{background:rgba(255,77,109,.12);border-color:var(--red);pointer-events:none}
+    .opt-lt{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0;transition:background .2s}
+    .opt.sel .opt-lt{background:var(--purple)}
+    .opt.correct .opt-lt{background:var(--green);color:#0a0a1a}
+    .opt.wrong .opt-lt{background:var(--red)}
+    .quiz-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:20px}
+
+    /* ── RESULTS ── */
+    #v-results{flex-direction:column}
+    .results-body{max-width:740px;width:100%;margin:0 auto;padding:28px 20px 48px;flex:1}
+    .res-hero{text-align:center;padding:40px 28px;margin-bottom:20px}
+    .res-trophy{font-size:5rem;display:block;margin-bottom:14px;animation:float 3s ease-in-out infinite}
+    .res-score{font-size:4.5rem;font-weight:900;line-height:1;margin-bottom:6px}
+    .res-lbl{color:var(--txt2);font-size:1rem}
+    .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+    .stat-card{padding:22px;text-align:center}
+    .stat-val{font-size:2rem;font-weight:900;margin-bottom:4px}
+    .stat-lbl{font-size:.8rem;color:var(--txt2)}
+    .grp-info{display:flex;align-items:center;gap:14px;padding:22px;margin-bottom:20px}
+    .grp-icon{font-size:2.2rem}
+    .grp-name{font-weight:700;font-size:1.15rem;margin-bottom:3px}
+    .grp-sub{color:var(--txt2);font-size:.85rem}
+    .review-card{padding:24px}
+    .review-card h3{font-size:1.05rem;font-weight:700;margin-bottom:16px}
+    .r-item{display:flex;gap:12px;padding:14px;border-radius:12px;margin-bottom:10px}
+    .r-item.ok {background:rgba(0,232,122,.05);border:1px solid rgba(0,232,122,.12)}
+    .r-item.bad{background:rgba(255,77,109,.05);border:1px solid rgba(255,77,109,.12)}
+    .r-ico{font-size:1.15rem;flex-shrink:0;margin-top:2px}
+    .r-q{font-size:.88rem;font-weight:600;margin-bottom:3px}
+    .r-ans{font-size:.82rem;color:var(--txt2);line-height:1.5}
+    .r-exp{font-size:.78rem;color:var(--txt3);font-style:italic;margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.06)}
+
+    /* ── ADMIN ── */
+    #v-admin{flex-direction:column}
+    .admin-body{padding:28px 32px 48px;flex:1}
+    .admin-tabs{display:flex;gap:6px;margin-bottom:28px;background:rgba(255,255,255,.05);padding:5px;border-radius:14px;width:fit-content}
+    .a-tab{padding:9px 22px;border-radius:10px;cursor:pointer;font-weight:600;font-size:.88rem;color:var(--txt2);transition:all .2s var(--ease)}
+    .a-tab.active{background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff}
+    .a-panel{display:none;animation:fadeUp .3s var(--ease)}
+    .a-panel.active{display:block}
+    .admin-g-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+    .adm-g-card{padding:22px}
+    .adm-g-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .adm-g-name{font-size:1.05rem;font-weight:700}
+    .adm-prog-lbl{font-size:.75rem;color:var(--txt3);margin-top:5px}
+    .adm-m-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:8px;background:rgba(255,255,255,.03);margin-bottom:5px;font-size:.88rem}
+    .rank-section{margin-bottom:44px}
+    .rank-section h2{font-size:1.35rem;font-weight:800;margin-bottom:18px;display:flex;align-items:center;gap:10px}
+    .rank-wrap{overflow:auto}
+    .rank-tbl{width:100%;border-collapse:collapse}
+    .rank-tbl th{text-align:left;padding:11px 16px;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);border-bottom:1px solid rgba(255,255,255,.07)}
+    .rank-tbl td{padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.04);font-size:.93rem}
+    .rank-tbl tr:hover td{background:rgba(255,255,255,.02)}
+    .rn{font-weight:900;font-size:1.05rem}
+    .rn1{color:var(--gold)}.rn2{color:#c0c0c0}.rn3{color:#cd7f32}
+    .s-bar-wrap{display:flex;align-items:center;gap:10px;min-width:180px}
+    .s-bar{flex:1;height:7px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden}
+    .s-bar-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--blue));border-radius:4px;transition:width 1.2s var(--ease)}
+    .s-txt{font-weight:700;min-width:36px;text-align:right}
+
+    #btn-cfg{position:fixed;bottom:22px;left:22px;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:var(--txt2);font-size:1.15rem;cursor:pointer;transition:all .2s;z-index:300;display:flex;align-items:center;justify-content:center}
+    #btn-cfg:hover{background:rgba(255,255,255,.14);color:#fff}
+    .cf{position:fixed;border-radius:2px;animation:cfFall linear forwards;z-index:9999;pointer-events:none}
+    @keyframes cfFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(105vh) rotate(720deg);opacity:0}}
+
+    @media(max-width:640px){
+      .hdr{padding:14px 16px}
+      .groups-grid,.admin-body{padding:16px}
+      .g-page-head{padding:20px 16px 10px}
+      .stats-row{grid-template-columns:1fr}
+      .admin-g-grid{grid-template-columns:1fr}
+      .quiz-body,.results-body{padding:20px 16px 40px}
+      .ep-grid{grid-template-columns:repeat(6,1fr)}
+    }
+  </style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div id="toasts"></div>
+<button id="btn-cfg" title="Configuración">⚙️</button>
+
+<!-- ── MODAL: Settings ── -->
+<div class="overlay hidden" id="modal-cfg">
+  <div class="card modal-box">
+    <h2 style="margin-bottom:6px">⚙️ Configuración</h2>
+    <p style="color:var(--txt2);font-size:.88rem;margin-bottom:24px">Conecta la app con tu Google Apps Script</p>
+    <label class="lbl">URL del Web App (Apps Script)</label>
+    <input type="text" id="inp-url" class="inp" placeholder="https://script.google.com/macros/s/AKfycbzmlW7M6msXc0HvOFGskGplAV-SDJ0eyeI84HgAEh4h2-974aYG3TDgQqKx0t9TW0MF/exec" style="margin-bottom:12px">
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <button class="btn btn-primary btn-full" id="btn-save-cfg">💾 Guardar</button>
+      <button class="btn btn-ghost" id="btn-close-cfg" style="padding:13px 18px">✕</button>
+    </div>
+    <button class="btn btn-ghost btn-full" id="btn-test-cfg">🔌 Probar conexión con Sheets</button>
+    <div id="cfg-diag" class="hidden" style="margin-top:14px;padding:14px;border-radius:10px;font-size:.82rem;line-height:1.65;max-height:220px;overflow-y:auto"></div>
+    <div style="margin-top:18px;padding:14px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.2);border-radius:10px;font-size:.82rem;color:var(--gold);line-height:1.6">
+      💡 <strong>Modo Demo:</strong> Sin URL, la app usa memoria local y <strong>no escribe en Sheets</strong>. Deja este campo con la URL <code>/exec</code> para guardar de verdad.
+    </div>
+    <div style="margin-top:12px;text-align:center">
+      <button class="btn btn-ghost" id="btn-clear-demo" style="font-size:.78rem;padding:6px 14px;opacity:.6">🗑️ Limpiar datos demo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Join / Edit Group ── -->
+<div class="overlay hidden" id="modal-join">
+  <div class="card" style="width:100%;max-width:540px;padding:30px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h2 id="join-modal-title" style="font-size:1.35rem">✨ Personalizar Equipo</h2>
+      <button class="btn btn-ghost" id="btn-cancel-join-x" style="padding:6px 12px;border-radius:8px">✕</button>
+    </div>
+    <p style="color:var(--txt2);font-size:.88rem;margin-bottom:18px">Modifica el nombre y elige el icono representativo de tu grupo.</p>
+
+    <!-- Real-time Preview -->
+    <div class="join-preview-card">
+      <div class="join-preview-tag" id="join-preview-tag">Equipo #1</div>
+      <span class="join-preview-em" id="join-preview-em">🦅</span>
+      <div class="join-preview-name" id="join-preview-name">Águilas Reales</div>
+    </div>
+
+    <!-- Group Name Input with Random Suggestion button -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label class="lbl" style="margin-bottom:0">Nombre del equipo</label>
+      <button class="btn btn-ghost btn-sm" id="btn-random-name" style="padding:4px 10px;font-size:.76rem;border-radius:6px" title="Generar idea de nombre">🎲 Sugerir nombre</button>
+    </div>
+    <input type="text" id="join-name-inp" class="inp" placeholder="Ej: Titanes Innovadores" style="margin-bottom:16px" maxlength="35">
+
+    <!-- Category Tabs for Emojis -->
+    <label class="lbl">Selecciona un icono ✨</label>
+    <div class="ep-tabs">
+      <button class="ep-tab active" data-cat="fieras">🦁 Fieras</button>
+      <button class="ep-tab" data-cat="epico">⚡ Épicos</button>
+      <button class="ep-tab" data-cat="tech">💡 Mentes &amp; Tech</button>
+      <button class="ep-tab" data-cat="logro">🏆 Victoria</button>
+    </div>
+    <div class="ep-grid" id="emoji-grid"></div>
+
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn btn-primary btn-full" id="btn-do-join">✅ Guardar y Unirme</button>
+      <button class="btn btn-ghost" id="btn-cancel-join" style="padding:13px 18px">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════  VIEW: LOGIN  ════ -->
+<div id="v-login" class="view active">
+  <div class="login-wrap">
+    <div class="login-hero">
+      <span class="login-icon">🏆</span>
+      <h1 class="gt">DinámicaQuiz</h1>
+      <p>Compite con tu equipo · Responde · Gana</p>
+    </div>
+    <div class="card login-card">
+      <h2>¡Bienvenido!</h2>
+      <p class="sub">Ingresa tu nombre completo para comenzar</p>
+      <label class="lbl" for="inp-name">Tu nombre</label>
+      <input type="text" id="inp-name" class="inp" placeholder="Ej: Juan García" autocomplete="off" style="margin-bottom:20px">
+      <button class="btn btn-primary btn-full" id="btn-login">Entrar &nbsp;→</button>
+      <div class="err-msg hidden" id="login-err"></div>
+    </div>
+    <p style="text-align:center;color:var(--txt3);font-size:.78rem;margin-top:20px">¿Sin conexión? Verifica la configuración ⚙️</p>
+  </div>
+</div>
+
+<!-- ════  VIEW: GROUPS  ════ -->
+<div id="v-groups" class="view">
+  <header class="hdr">
+    <div class="hdr-logo gt">🏆 DinámicaQuiz</div>
+    <div class="user-pill">
+      <div class="avatar" id="grp-av">?</div>
+      <span id="grp-nm">Usuario</span>
+    </div>
+  </header>
+  <div id="demo-banner-grp" class="demo-banner hidden">⚡ Modo Demo — datos guardados localmente</div>
+  
+  <div class="g-page-head">
+    <h1>Elige tu Equipo</h1>
+    <p>Selecciona un grupo ya creado. Puedes <strong>personalizar su nombre e ícono</strong> al unirte para representar a tu equipo.</p>
+  </div>
+
+  <div class="groups-grid" id="groups-grid">
+    <div class="loading"><div class="spin"></div><span>Cargando grupos disponibles…</span></div>
+  </div>
+</div>
+
+<!-- ════  VIEW: QUIZ  ════ -->
+<div id="v-quiz" class="view">
+  <header class="hdr">
+    <div class="hdr-logo gt">🏆 DinámicaQuiz</div>
+    <div class="user-pill">
+      <div class="avatar" id="quiz-av">?</div>
+      <span id="quiz-nm">Usuario</span>
+      <span class="badge badge-blue" id="quiz-grp-badge" style="cursor:pointer" title="Clic para editar nombre e icono">Grupo</span>
+    </div>
+  </header>
+  <div id="demo-banner-quiz" class="demo-banner hidden">⚡ Modo Demo</div>
+  <div class="quiz-body">
+    <div style="margin-bottom:22px">
+      <div class="quiz-meta">
+        <span class="q-counter" id="q-counter">Caso 1 de 6</span>
+        <span class="q-pts" id="q-pts">⭐ 10 pts</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" id="q-prog" style="width:0%"></div></div>
+    </div>
+    <div class="card q-card" id="q-card"></div>
+    <div class="opts" id="opts-grid"></div>
+    <div class="quiz-footer">
+      <span id="quiz-nav-hint" style="font-size:.82rem;color:var(--txt3)">Selecciona una respuesta para continuar</span>
+      <button class="btn btn-primary" id="btn-next" disabled>Siguiente &nbsp;→</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════  VIEW: RESULTS  ════ -->
+<div id="v-results" class="view">
+  <header class="hdr">
+    <div class="hdr-logo gt">🏆 DinámicaQuiz</div>
+    <div class="user-pill">
+      <div class="avatar" id="res-av">?</div>
+      <span id="res-nm">Usuario</span>
+    </div>
+  </header>
+  <div class="results-body">
+    <div class="card res-hero">
+      <span class="res-trophy" id="res-trophy">🏆</span>
+      <div class="res-score gt-gold" id="res-score">0</div>
+      <div class="res-lbl">puntos obtenidos</div>
+    </div>
+    <div class="stats-row">
+      <div class="card stat-card">
+        <div class="stat-val gt" id="st-correct">0/0</div>
+        <div class="stat-lbl">✅ Respuestas correctas</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-val gt-gold" id="st-grp">0</div>
+        <div class="stat-lbl">🏅 Promedio del grupo</div>
+      </div>
+    </div>
+    <div class="card grp-info" style="margin-bottom:20px">
+      <div class="grp-icon" id="res-grp-icon">👥</div>
+      <div>
+        <div class="grp-name" id="res-grp-name">Grupo</div>
+        <div class="grp-sub" id="res-grp-sub">—</div>
+      </div>
+    </div>
+    <div class="card review-card">
+      <h3>📋 Revisión de respuestas</h3>
+      <div id="review-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════  VIEW: ADMIN  ════ -->
+<div id="v-admin" class="view">
+  <header class="hdr">
+    <div class="hdr-logo gt">🏆 DinámicaQuiz</div>
+    <div class="user-pill">
+      <span>👑</span><span>Robinzon C.</span>
+      <span class="badge badge-gold">ADMIN</span>
+    </div>
+    <button class="btn btn-ghost" id="btn-refresh" style="padding:9px 16px;font-size:.83rem">🔄 Actualizar</button>
+  </header>
+  <div id="demo-banner-admin" class="demo-banner hidden">⚡ Modo Demo — datos locales</div>
+  <div class="admin-body">
+    <div class="admin-tabs">
+      <div class="a-tab active" id="atab-groups" onclick="switchTab('groups')">👥 Grupos &amp; Integrantes</div>
+      <div class="a-tab" id="atab-scores" onclick="switchTab('scores')">🏅 Puntuaciones</div>
+    </div>
+    <div class="a-panel active" id="apanel-groups">
+      <div class="admin-g-grid" id="adm-g-grid">
+        <div class="loading"><div class="spin"></div><span>Cargando…</span></div>
+      </div>
+    </div>
+    <div class="a-panel" id="apanel-scores">
+      <div class="rank-section">
+        <h2>🏆 Ranking por Grupo</h2>
+        <div class="card rank-wrap">
+          <table class="rank-tbl">
+            <thead><tr><th>#</th><th>Grupo</th><th>Miembros</th><th>Respondieron</th><th>Puntaje Promedio</th></tr></thead>
+            <tbody id="grp-rank-body"><tr><td colspan="5" style="text-align:center;color:var(--txt3);padding:32px">Sin datos aún</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="rank-section">
+        <h2>⭐ Ranking Individual</h2>
+        <div class="card rank-wrap">
+          <table class="rank-tbl">
+            <thead><tr><th>#</th><th>Participante</th><th>Equipo</th><th>Correctas</th><th>Puntaje</th></tr></thead>
+            <tbody id="ind-rank-body"><tr><td colspan="5" style="text-align:center;color:var(--txt3);padding:32px">Sin datos aún</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══ CONFIG ══ */
+const ADMIN_NAME = 'Robinzon C.';
+
+/* URL de la implementación del Web App de Apps Script.
+   Se usa por defecto para que la app NO arranque en modo demo (que solo
+   guarda en localStorage y nunca escribe en Sheets). Si publicas una
+   implementación nueva, actualiza esta constante o pégala en ⚙️. */
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxTlB-M4Ex26IAaXUnX05hsMw-f7D8ANZ-1AmY8MkQWcNF-0P8qopD7XIFl3V257i1b/exec';
+
+/* El modo demo solo se activa si se elige a propósito (guardar el campo vacío
+   en ⚙️). Una URL vacía heredada de una prueba anterior ya no deja la app
+   escribiendo en localStorage sin que nadie se dé cuenta. */
+const storedUrl = (localStorage.getItem('dq_script_url') || '').trim();
+const demoFlag  = localStorage.getItem('dq_demo') === '1';
+let SCRIPT_URL  = storedUrl || (demoFlag ? '' : DEFAULT_SCRIPT_URL);
+const isDemo    = () => !SCRIPT_URL;
+
+/* ══ ICON CATEGORIES ══ */
+const ICON_CATEGORIES = {
+  fieras: ['🦅','🐺','🐯','🦁','🐆','🐉','🦊','🐻','🦉','🐊','🦈','🐬','🦄','🐘','🦏','🦒','🦓','🦍','🦚','🐝'],
+  epico:  ['🔥','⚡','🌟','💎','🚀','🔱','🎯','🌊','🌋','⚔️','🛡️','🌪️','☄️','🔮','🪐','🌌','💥','🛸','🏹','🏆'],
+  tech:   ['🤖','🧠','💻','⚙️','🧪','🔬','🕹️','💡','📡','🌐','🎲','🧩','♟️','🎭','🎨','🎪','🏎️','✈️','⚓','🔋'],
+  logro:  ['🥇','👑','🎖️','🏅','🔥','🎯','✨','🎪','🎩','🛡️','⭐','🌟','🏆','💎','🔮','🎉','🎊','💪','🚀','🌈']
+};
+
+const SUGGESTED_NAMES = [
+  'Águilas Digitales', 'Lobos de Innovación', 'Tigres del Código', 'Leones Ágiles',
+  'Panteras Tech', 'Cóndores Cuánticos', 'Dragones de Datos', 'Fénix Creativo',
+  'Jaguares del Futuro', 'Serpientes de Jade', 'Titanes Analíticos', 'Halcones de Élite',
+  'Cerebros Dinámicos', 'Guardianes del Flow', 'Centellas Rápidas', 'Vórtice Innovador'
+];
+
+/* ══ DEMO DATA (FALLBACK LOCAL) ══ */
+const DEMO_GRUPOS = [
+  {id:1, nombre:'Águilas Reales',    emoji:'🦅', color:'#00d4ff', cupo_max:6, miembros:[]},
+  {id:2, nombre:'Lobos Plateados',   emoji:'🐺', color:'#94a3b8', cupo_max:6, miembros:[]},
+  {id:3, nombre:'Tigres del Norte',  emoji:'🐯', color:'#f97316', cupo_max:6, miembros:[]},
+  {id:4, nombre:'Leones Dorados',    emoji:'🦁', color:'#ffd700', cupo_max:6, miembros:[]},
+  {id:5, nombre:'Panteras Negras',   emoji:'🐆', color:'#a855f7', cupo_max:6, miembros:[]},
+  {id:6, nombre:'Cóndores Altivos',  emoji:'🦅', color:'#10b981', cupo_max:6, miembros:[]},
+  {id:7, nombre:'Dragones de Fuego', emoji:'🐉', color:'#ef4444', cupo_max:6, miembros:[]},
+  {id:8, nombre:'Fénix Brillante',   emoji:'🔥', color:'#f59e0b', cupo_max:6, miembros:[]},
+  {id:9, nombre:'Jaguares del Sur',  emoji:'🐈', color:'#06b6d4', cupo_max:6, miembros:[]},
+  {id:10,nombre:'Serpientes de Jade',emoji:'🐍', color:'#22c55e', cupo_max:6, miembros:[]}
+];
+
+const OPC_BASE = ['CANVAS','CANVAS + SHEETS','GPT / GEM','PROYECTO','CHAT GENERAL','AGENTE INVESTIGACIÓN'];
+
+const DEMO_PREGUNTAS = [
+  {
+    id:1, orden:1,
+    casoNum:1,
+    intro:'Se necesita redactar un correo formal, con tono amigable, solicitando información urgente a planta. Esta necesidad se presenta muchas veces.',
+    texto:'¿Qué alternativa utilizarías?',
+    opciones:[...OPC_BASE],
+    respuesta_correcta:'C',
+    puntos:10,
+    explicacion:'GPT/GEM es ideal para generar textos con tono y formato específicos de forma rápida y repetible, sin necesidad de almacenar contexto adicional.'
+  },
+  {
+    id:2, orden:2,
+    casoNum:2,
+    intro:'Se necesita extraer contenido específico de 100 PDF de texto, siempre con el mismo formato, y enviar una tabla resumen por correo. Esta actividad se realiza muchas veces.',
+    texto:'¿Qué alternativa utilizarías?',
+    opciones:[...OPC_BASE],
+    respuesta_correcta:'A',
+    puntos:10,
+    explicacion:'CANVAS permite crear flujos repetibles y estructurados para extracción de información, ideales cuando el formato de entrada y salida es siempre el mismo.'
+  },
+  {
+    id:3, orden:3,
+    casoNum:3,
+    intro:'Se necesita consultar un canal que contenga información diversa alimentada por varios usuarios: chats, correos, comentarios, búsquedas y otros contenidos, concentrados alrededor de un tema específico. La consulta se realizará muchas veces.',
+    texto:'¿Qué alternativa utilizarías?',
+    opciones:[...OPC_BASE],
+    respuesta_correcta:'D',
+    puntos:10,
+    explicacion:'PROYECTO centraliza múltiples fuentes de información diversas y permite consultarlas de forma recurrente manteniendo el contexto acumulado de todos los usuarios.'
+  },
+  {
+    id:4, orden:4,
+    casoNum:4,
+    intro:'Se necesita realizar diversas consultas sobre 5 PDF, que contienen texto e imágenes y tienen formatos diferentes. Además, se requiere cruzar información entre ellos. Esta necesidad se realizará una sola vez.',
+    texto:'¿Qué alternativa utilizarías?',
+    opciones:[...OPC_BASE],
+    respuesta_correcta:'E',
+    puntos:10,
+    explicacion:'CHAT GENERAL es la opción adecuada para consultas puntuales sobre múltiples documentos en una sola sesión, sin necesidad de configurar un flujo permanente.'
+  },
+  {
+    id:5, orden:5,
+    casoNum:5,
+    intro:'Se necesita buscar información sobre tipos de prendas, nuevos estilos y tendencias de moda a nivel mundial. Como resultado se espera un análisis profundo y conocer las páginas o fuentes de donde se obtuvo la información. Esta necesidad se realizará una sola vez.',
+    texto:'¿Qué alternativa utilizarías?',
+    opciones:[...OPC_BASE],
+    respuesta_correcta:'F',
+    puntos:10,
+    explicacion:'AGENTE INVESTIGACIÓN es la herramienta especializada para búsquedas profundas en internet con citación de fuentes. Puede iniciarse desde CHAT GENERAL, pero el agente ofrece el análisis más completo.'
+  },
+  {
+    id:6, orden:6,
+    casoNum:6,
+    intro:'Se necesita extraer el contenido de 30 PDF de texto todas las semanas, compartir la información mediante Excel y permitir que sea consultada y completada muchas veces por diversos usuarios.',
+    texto:'¿Qué alternativa utilizarías?',
+    opciones:[...OPC_BASE],
+    respuesta_correcta:'B',
+    puntos:10,
+    explicacion:'CANVAS + SHEETS combina la extracción estructurada de CANVAS con la colaboración y consulta multiusuario que ofrece Google Sheets, ideal para procesos semanales compartidos.'
+  }
+];
+
+/* ══ STATE ══ */
+const S = {user:null,group:null,preguntas:[],grupos:[],qIndex:0,answers:{},results:null};
+const PJ = {gId:null,gName:null,gEmoji:null,origName:null,origEmoji:null,currentCat:'fieras'};
+
+/* ══ UTILS ══ */
+const $  = id => document.getElementById(id);
+const ii = n  => (n||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>{v.classList.remove('active');v.style.display='none'});
+  const el=$(id); el.style.display='flex'; el.classList.add('active'); window.scrollTo(0,0);
+}
+function showDemoBanner(key){
+  const map={groups:'demo-banner-grp',quiz:'demo-banner-quiz',admin:'demo-banner-admin'};
+  const el=$(map[key]); if(!el) return;
+  isDemo()?el.classList.remove('hidden'):el.classList.add('hidden');
+}
+function toast(msg,type='info',dur=3500){
+  const t=document.createElement('div'); t.className=`toast toast-${type}`; t.textContent=msg;
+  $('toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(110px)';t.style.transition='all .3s';setTimeout(()=>t.remove(),350)},dur);
+}
+function btnBusy(id,on){
+  const b=$(id); if(!b) return; b.disabled=on;
+  if(on){b._t=b.innerHTML;b.innerHTML='<div class="spin" style="width:16px;height:16px;border-width:2px"></div> Guardando…'}
+  else b.innerHTML=b._t||'';
+}
+function confetti(){
+  const cols=['#ffd700','#7c3aed','#00d4ff','#00e87a','#ff4d6d','#f97316'];
+  for(let i=0;i<90;i++) setTimeout(()=>{
+    const el=document.createElement('div'); el.className='cf';
+    el.style.cssText=`left:${Math.random()*100}vw;width:${Math.random()*9+5}px;height:${Math.random()*9+5}px;background:${cols[~~(Math.random()*cols.length)]};animation-duration:${Math.random()*2+2}s;animation-delay:${Math.random()*.5}s`;
+    document.body.appendChild(el); setTimeout(()=>el.remove(),4500);
+  },i*18);
+}
+
+/* ══ API ══ */
+
+/* Apps Script devuelve JSON, pero ante un problema de permisos responde con
+   el HTML de la pantalla de acceso de Google. Parsear a ciegas con r.json()
+   ocultaba ese caso tras un "Unexpected token <". */
+async function parseRespuesta(r){
+  if(!r.ok) throw new Error(`HTTP ${r.status} — ${r.statusText||'sin respuesta'}`);
+  const txt=await r.text();
+  try{
+    return JSON.parse(txt);
+  }catch{
+    if(/<html|Iniciar sesión|Sign in|accounts\.google\.com/i.test(txt)){
+      throw new Error('El Web App pidió inicio de sesión. En Apps Script: Implementar → Gestionar implementaciones → "Quién tiene acceso: Cualquier usuario".');
+    }
+    throw new Error('La respuesta no es JSON válido. ¿La URL termina en /exec? Recibido: '+txt.slice(0,120));
+  }
+}
+
+function buildUrl(action,params={}){
+  const url=new URL(SCRIPT_URL);
+  url.searchParams.set('action',action);
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+  return url.toString();
+}
+
+async function apiGet(action,params={}){
+  if(isDemo()) return demoGet(action,params);
+  return parseRespuesta(await fetch(buildUrl(action,params),{redirect:'follow'}));
+}
+
+async function apiPost(action,data={}){
+  if(isDemo()) return demoPost(action,data);
+  const payload=JSON.stringify({action,...data});
+
+  /* 'text/plain' mantiene la petición dentro de las "simple requests" del
+     navegador. Con 'application/json' se dispara un preflight OPTIONS que
+     Apps Script no responde, y la escritura se perdía silenciosamente.
+     Apps Script recibe el cuerpo igual en e.postData.contents. */
+  try{
+    const r=await fetch(SCRIPT_URL,{
+      method:'POST',
+      redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:payload
+    });
+    return await parseRespuesta(r);
+  }catch(errPost){
+    // Respaldo: la misma escritura vía GET, que nunca genera preflight.
+    let res;
+    try{
+      res=await parseRespuesta(await fetch(buildUrl(action,{payload}),{redirect:'follow'}));
+    }catch{
+      throw errPost;   // el respaldo también falló: reporta el error original
+    }
+    /* Si el POST llegó a escribir y solo se perdió su respuesta, el reintento
+       choca con la validación de duplicados. Eso significa que los datos SÍ
+       están en Sheets, así que no debe mostrarse como error al participante. */
+    if(action==='guardarRespuestas' && !res.success && /ya enviaste/i.test(res.error||'')){
+      return{success:true,puntaje_grupo:0,reintento:true};
+    }
+    return res;
+  }
+}
+
+async function apiDiagnostico(){
+  if(isDemo()) return{success:false,error:'Modo demo: no hay URL configurada.'};
+  return apiGet('diagnostico');
+}
+
+/* ══ DEMO STORAGE (LOCAL) ══ */
+function demoUsers(){try{return JSON.parse(localStorage.getItem('dq_users')||'{}')}catch{return{}}}
+function saveUsers(u){localStorage.setItem('dq_users',JSON.stringify(u))}
+function demoGrpC(){try{return JSON.parse(localStorage.getItem('dq_grp_c')||'{}')}catch{return{}}}
+function saveGrpC(c){localStorage.setItem('dq_grp_c',JSON.stringify(c))}
+
+function demoGet(action,params){
+  if(action==='getGrupos'){
+    const users=demoUsers(), customs=demoGrpC();
+    return{success:true,grupos:DEMO_GRUPOS.map(g=>{
+      const c=customs[g.id]||{};
+      return{...g,
+        nombre:c.nombre||g.nombre,
+        emoji:c.emoji||g.emoji,
+        miembros:Object.values(users).filter(u=>Number(u.id_grupo)===Number(g.id)).map(u=>u.nombre)
+      };
+    })};
+  }
+  if(action==='getUsuario'){
+    const users=demoUsers(),key=(params.nombre||'').toLowerCase().trim();
+    const u=Object.values(users).find(u=>u.nombre.toLowerCase().trim()===key)||null;
+    return{success:true,usuario:u};
+  }
+  if(action==='getPreguntas') return{success:true,preguntas:DEMO_PREGUNTAS};
+  if(action==='getDashboard'){
+    const users=demoUsers(), customs=demoGrpC();
+    const grupos=DEMO_GRUPOS.map(g=>{
+      const c=customs[g.id]||{};
+      return{...g,
+        nombre:c.nombre||g.nombre,
+        emoji:c.emoji||g.emoji,
+        miembros:Object.values(users).filter(u=>Number(u.id_grupo)===Number(g.id)).map(u=>u.nombre)
+      };
+    });
+    const resp=Object.values(users).filter(u=>u.completado).map(u=>({
+      nombre:u.nombre,id_grupo:Number(u.id_grupo),puntaje:u.puntaje||0,
+      correctas:u.correctas||0,total_preguntas:u.total_preguntas||DEMO_PREGUNTAS.length
+    }));
+    return{success:true,grupos,respuestas:resp};
+  }
+  return{success:false,error:'Acción no soportada'};
+}
+
+function demoPost(action,data){
+  if(action==='registrarUsuario'){
+    const users=demoUsers(),key=data.nombre.toLowerCase().trim();
+    const idGrp=Number(data.id_grupo);
+    if(Object.values(users).find(u=>u.nombre.toLowerCase().trim()===key && Number(u.id_grupo)!==idGrp))
+      return{success:false,error:'El usuario ya está registrado en otro equipo'};
+    
+    const g=DEMO_GRUPOS.find(x=>x.id===idGrp);
+    const miembros=Object.values(users).filter(u=>Number(u.id_grupo)===idGrp).length;
+    if(g&&miembros>=g.cupo_max && (!users[key] || Number(users[key].id_grupo)!==idGrp)) 
+      return{success:false,error:'El grupo está lleno'};
+    
+    users[key]={nombre:data.nombre,id_grupo:idGrp,completado:false};
+    saveUsers(users);
+
+    if(data.nombre_grupo || data.emoji){
+      const c=demoGrpC();
+      c[idGrp]=c[idGrp]||{};
+      if(data.nombre_grupo) c[idGrp].nombre=data.nombre_grupo;
+      if(data.emoji) c[idGrp].emoji=data.emoji;
+      saveGrpC(c);
+    }
+    return{success:true};
+  }
+  if(action==='actualizarGrupo'){
+    const c=demoGrpC();
+    const idGrp=Number(data.id_grupo);
+    c[idGrp]=c[idGrp]||{};
+    const nName=data.nombre_nuevo || data.nombre_grupo || data.nombre;
+    const nEmoji=data.emoji_nuevo || data.emoji;
+    if(nName) c[idGrp].nombre=nName;
+    if(nEmoji) c[idGrp].emoji=nEmoji;
+    saveGrpC(c);
+    return{success:true};
+  }
+  if(action==='guardarRespuestas'){
+    const users=demoUsers(),key=data.nombre.toLowerCase().trim();
+    if(users[key]&&users[key].completado) return{success:false,error:'Ya enviaste tus respuestas'};
+    if(users[key]){
+      users[key].completado=true;
+      users[key].puntaje=data.puntaje_total;
+      users[key].correctas=data.correctas;
+      users[key].total_preguntas=data.total_preguntas;
+    }
+    saveUsers(users);
+    const members=Object.values(demoUsers()).filter(u=>Number(u.id_grupo)===Number(data.id_grupo)&&u.completado);
+    const avg=members.length?Math.round(members.reduce((s,u)=>s+(u.puntaje||0),0)/members.length):0;
+    return{success:true,puntaje_grupo:avg};
+  }
+  return{success:false};
+}
+
+/* ══ LOGIN ══ */
+async function handleLogin(){
+  const name=$('inp-name').value.trim();
+  const errEl=$('login-err');
+  errEl.classList.add('hidden');
+  if(name.length<2){errEl.textContent='Por favor ingresa tu nombre (mínimo 2 caracteres)';errEl.classList.remove('hidden');return;}
+  if(name===ADMIN_NAME){
+    S.user={nombre:name,isAdmin:true};
+    localStorage.setItem('dq_current',JSON.stringify(S.user));
+    showView('v-admin'); showDemoBanner('admin'); loadAdmin(); return;
+  }
+  btnBusy('btn-login',true);
+  try{
+    const res=await apiGet('getUsuario',{nombre:name});
+    if(!res.success) throw new Error(res.error||'Error');
+    S.user={nombre:name};
+    localStorage.setItem('dq_current',JSON.stringify(S.user));
+    if(res.usuario&&res.usuario.id_grupo){
+      S.group=Number(res.usuario.id_grupo);
+      localStorage.setItem('dq_group',String(S.group));
+      // Sin esto, el usuario que vuelve ve "Tu Grupo" en lugar de su equipo real.
+      await ensureGrupos();
+      if(res.usuario.completado){
+        S.results=res.usuario;
+        await loadQuestionsOnly();
+        buildResultsFromSaved(); updateResultsUI(); showView('v-results');
+      } else { await startQuiz(); }
+    } else { await showGroups(name); }
+  }catch(e){
+    errEl.textContent=isDemo()
+      ?'⚡ Modo Demo activo — ingresa cualquier nombre para explorar.'
+      :`Error al conectar: ${e.message}`;
+    errEl.classList.remove('hidden');
+  }finally{btnBusy('btn-login',false)}
+}
+
+/* ══ GROUPS VIEW ══ */
+// Carga la lista de grupos si aún no está en memoria (login directo al quiz
+// o a resultados, sin pasar por la pantalla de selección de equipo).
+async function ensureGrupos(){
+  if(S.grupos&&S.grupos.length) return S.grupos;
+  try{
+    const res=await apiGet('getGrupos');
+    if(res.success) S.grupos=res.grupos||[];
+  }catch(e){ console.warn('No se pudieron cargar los grupos:',e.message); }
+  return S.grupos;
+}
+
+async function showGroups(name){
+  $('grp-nm').textContent=name; $('grp-av').textContent=ii(name);
+  showView('v-groups'); showDemoBanner('groups');
+  try{
+    const res=await apiGet('getGrupos');
+    if(!res.success) throw new Error(res.error);
+    S.grupos=res.grupos; renderGroups(res.grupos);
+  }catch(e){
+    $('groups-grid').innerHTML=`<div class="loading"><span style="color:var(--red)">❌ ${e.message}</span></div>`;
+  }
+}
+
+function renderGroups(grupos){
+  const grid=$('groups-grid'); grid.innerHTML='';
+  grupos.forEach(g=>{
+    const full=g.miembros.length>=g.cupo_max;
+    const pct=(g.miembros.length/g.cupo_max)*100;
+    const bc=pct<50?'var(--green)':pct<85?'var(--gold)':'var(--red)';
+    const card=document.createElement('div');
+    card.className=`card g-card${full?' full':''}`;
+    card.style.setProperty('--gc',g.color||'var(--purple)');
+    card.innerHTML=`
+      <div>
+        <div class="g-card-top">
+          <span class="g-team-num">Equipo #${g.id}</span>
+          <span class="badge ${full?'badge-red':'badge-blue'}">${g.miembros.length}/${g.cupo_max} cupos</span>
+        </div>
+        
+        <div class="g-hero-wrap">
+          <div class="g-emoji-box">${g.emoji||'👥'}</div>
+          <div>
+            <div class="g-name">${g.nombre}</div>
+            <div style="font-size:.76rem;color:var(--txt3)">Haz clic para personalizar e ingresar</div>
+          </div>
+        </div>
+
+        <div class="g-cap">
+          <div class="g-cap-bar"><div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${bc}"></div></div></div>
+          <span class="g-cap-txt">${full?'Lleno':'Disponible'}</span>
+        </div>
+
+        <div class="g-members">
+          ${g.miembros.length===0
+            ?'<span style="color:var(--txt3);font-size:.82rem;font-style:italic">Sé el primero en unirte y nombrar a tu equipo</span>'
+            :g.miembros.map(m=>`<div class="g-member"><div class="g-dot"></div>${m}</div>`).join('')}
+        </div>
+      </div>
+
+      <div class="g-actions">
+        ${full
+          ? `<button class="btn btn-ghost btn-full" disabled style="opacity:.6">🔒 Cupo Completo</button>`
+          : `<button class="btn btn-primary btn-full g-btn-join">✏️ Personalizar &amp; Unirme</button>`
+        }
+      </div>`;
+
+    if(!full){
+      card.style.cursor='pointer';
+      card.addEventListener('click',()=>openJoinModal(g.id,g.nombre,g.emoji));
+    }
+    grid.appendChild(card);
+  });
+}
+
+/* ══ JOIN & CUSTOMIZE MODAL ══ */
+function openJoinModal(gId,gName,gEmoji){
+  const liveGrp = (S.grupos||[]).find(x => Number(x.id) === Number(gId));
+  const currentName = liveGrp ? liveGrp.nombre : gName;
+  const currentEmoji = liveGrp ? liveGrp.emoji : gEmoji;
+
+  Object.assign(PJ,{
+    gId: Number(gId),
+    gName: currentName,
+    gEmoji: currentEmoji,
+    origName: currentName,
+    origEmoji: currentEmoji,
+    currentCat:'fieras'
+  });
+
+  $('join-modal-title').textContent=`✨ Personalizar Equipo #${gId}`;
+  $('join-preview-tag').textContent=`Equipo #${gId}`;
+  $('join-name-inp').value=currentName;
+  $('join-preview-em').textContent=currentEmoji;
+  $('join-preview-name').textContent=currentName;
+  
+  // Set category tab active
+  document.querySelectorAll('.ep-tab').forEach(t=>t.classList.toggle('active',t.dataset.cat==='fieras'));
+  renderEmojiPicker('fieras',currentEmoji);
+  
+  $('modal-join').classList.remove('hidden');
+  $('join-name-inp').focus();
+  $('join-name-inp').select();
+}
+
+function renderEmojiPicker(category,selected){
+  const grid=$('emoji-grid'); grid.innerHTML='';
+  const list=ICON_CATEGORIES[category]||ICON_CATEGORIES.fieras;
+  
+  list.forEach(em=>{
+    const btn=document.createElement('button');
+    btn.className='ep-btn'+(em===PJ.gEmoji?' active':'');
+    btn.textContent=em; 
+    btn.title=em;
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.ep-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      PJ.gEmoji=em;
+      $('join-preview-em').textContent=em;
+    });
+    grid.appendChild(btn);
+  });
+}
+
+function cancelJoin(){ $('modal-join').classList.add('hidden'); }
+
+// Update preview name while typing
+function onJoinNameInput(){
+  const v=$('join-name-inp').value.trim();
+  $('join-preview-name').textContent=v||PJ.origName;
+  PJ.gName=v||PJ.origName;
+}
+
+// Random Team Name Suggestion
+function pickRandomName(){
+  const rnd=SUGGESTED_NAMES[Math.floor(Math.random()*SUGGESTED_NAMES.length)];
+  $('join-name-inp').value=rnd;
+  onJoinNameInput();
+}
+
+async function confirmJoin(){
+  const customName = ($('join-name-inp').value.trim()) || PJ.origName || `Equipo #${PJ.gId}`;
+  const customEmoji = PJ.gEmoji || PJ.origEmoji || '👥';
+  const { gId } = PJ;
+
+  btnBusy('btn-do-join', true);
+  try {
+    // 1. Si no está registrado en el grupo aún, registrarlo
+    if (!S.group || Number(S.group) !== Number(gId)) {
+      const res = await apiPost('registrarUsuario', {
+        nombre: S.user.nombre,
+        id_grupo: gId,
+        nombre_grupo: customName,
+        emoji: customEmoji
+      });
+      if (!res.success) throw new Error(res.error || 'Error al unirse al grupo');
+      S.group = Number(gId);
+      localStorage.setItem('dq_group', String(gId));
+    }
+
+    // 2. Siempre actualizar el nombre y emoji del grupo
+    const actRes = await apiPost('actualizarGrupo', {
+      id_grupo: gId,
+      nombre_nuevo: customName,
+      emoji_nuevo: customEmoji,
+      nombre_grupo: customName,
+      emoji: customEmoji
+    });
+    if (!actRes.success && actRes.error) {
+      console.warn('actualizarGrupo info:', actRes.error);
+    }
+
+    // 3. Actualizar la memoria local S.grupos de inmediato
+    let g = (S.grupos||[]).find(x => Number(x.id) === Number(gId));
+    if (!g) {
+      g = { id: Number(gId), nombre: customName, emoji: customEmoji, cupo_max: 6, miembros: [S.user.nombre] };
+      S.grupos.push(g);
+    } else {
+      g.nombre = customName;
+      g.emoji = customEmoji;
+      if (!g.miembros.includes(S.user.nombre)) {
+        g.miembros.push(S.user.nombre);
+      }
+    }
+
+    // 4. Actualizar badge de grupo en el quiz
+    const badge = $('quiz-grp-badge');
+    if (badge) {
+      badge.textContent = `${customEmoji} ${customName} ✏️`;
+    }
+
+    $('modal-join').classList.add('hidden');
+    toast(`¡Equipo actualizado: ${customEmoji} ${customName}!`, 'success');
+
+    // 5. Si estamos en la vista de grupos, avanzar al quiz
+    const isQuizActive = $('v-quiz').classList.contains('active');
+    if (!isQuizActive) {
+      await startQuiz();
+    }
+  } catch(e) {
+    toast(`Error: ${e.message}`, 'error', 4500);
+  } finally {
+    btnBusy('btn-do-join', false);
+  }
+}
+
+/* ══ QUIZ ══ */
+async function loadQuestionsOnly(){
+  const res=await apiGet('getPreguntas');
+  if(!res.success) throw new Error(res.error);
+  S.preguntas=res.preguntas;
+}
+
+async function startQuiz(){
+  await loadQuestionsOnly();
+  await ensureGrupos();
+  S.qIndex=0; S.answers={};
+  const g = (S.grupos||[]).find(x=>Number(x.id)===Number(S.group)) || {};
+  $('quiz-nm').textContent=S.user.nombre;
+  $('quiz-av').textContent=ii(S.user.nombre);
+  $('quiz-grp-badge').textContent=`${g.emoji||'👥'} ${g.nombre||'Mi Grupo'} ✏️`;
+  showView('v-quiz'); showDemoBanner('quiz');
+  renderQuestion(0);
+}
+
+function renderQuestion(idx){
+  const q=S.preguntas[idx], total=S.preguntas.length;
+  const ltrs=['A','B','C','D','E','F'];
+
+  $('q-counter').textContent=`Caso ${q.casoNum||idx+1} de ${total}`;
+  $('q-pts').textContent=`⭐ ${q.puntos||10} pts`;
+  $('q-prog').style.width=`${((idx+1)/total)*100}%`;
+
+  if(q.intro){
+    $('q-card').innerHTML=`
+      <div class="q-label">Caso ${q.casoNum||idx+1}</div>
+      <div class="q-case-intro">${q.intro}</div>
+      <div class="q-question">${q.texto}</div>`;
+  } else {
+    $('q-card').innerHTML=`<div class="q-label">Pregunta ${idx+1}</div><div class="q-text">${(q.texto||'').replace(/\n/g,'<br>')}</div>`;
+  }
+
+  const grid=$('opts-grid'); grid.innerHTML='';
+  (q.opciones||[]).forEach((op,i)=>{
+    const lt=ltrs[i];
+    const opt=document.createElement('div');
+    opt.className='opt'; opt.id=`opt-${lt}`;
+    opt.innerHTML=`<div class="opt-lt">${lt}</div><div>${op}</div>`;
+    opt.addEventListener('click',()=>selectAnswer(idx,lt,opt));
+    grid.appendChild(opt);
+  });
+
+  if(S.answers[idx]!==undefined){
+    const p=$(`opt-${S.answers[idx]}`); if(p) p.classList.add('sel');
+    $('btn-next').disabled=false;
+  } else { $('btn-next').disabled=true; }
+  $('btn-next').innerHTML=idx===total-1?'✅ Finalizar Quiz':'Siguiente &nbsp;→';
+  $('quiz-nav-hint').textContent=S.answers[idx]!==undefined?'':'Selecciona una respuesta para continuar';
+}
+
+function selectAnswer(idx,letter,el){
+  document.querySelectorAll('.opt').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+  S.answers[idx]=letter;
+  $('btn-next').disabled=false;
+  $('quiz-nav-hint').textContent='';
+}
+
+function nextQuestion(){
+  if(S.qIndex<S.preguntas.length-1){S.qIndex++;renderQuestion(S.qIndex);}
+  else submitQuiz();
+}
+
+async function submitQuiz(){
+  let pts=0,ok=0;
+  const detalles=S.preguntas.map((q,i)=>{
+    const ans=S.answers[i],correct=ans===q.respuesta_correcta,earned=correct?(q.puntos||10):0;
+    if(correct){pts+=earned;ok++;}
+    return{id_pregunta:q.id,respuesta_dada:ans,es_correcta:correct,puntos_obtenidos:earned};
+  });
+  const totalPts=S.preguntas.reduce((s,q)=>s+(q.puntos||10),0);
+  btnBusy('btn-next',true);
+  try{
+    const res=await apiPost('guardarRespuestas',{
+      nombre:S.user.nombre,id_grupo:S.group,
+      puntaje_total:pts,correctas:ok,
+      total_preguntas:S.preguntas.length,total_posible:totalPts,detalles
+    });
+    if(!res.success) throw new Error(res.error||'Error');
+    S.results={puntaje:pts,correctas:ok,total_preguntas:S.preguntas.length,
+      total_posible:totalPts,detalles,puntaje_grupo:res.puntaje_grupo||0};
+    updateResultsUI(); showView('v-results');
+    const pct=Math.round((ok/S.preguntas.length)*100);
+    if(pct>=60) setTimeout(confetti,300);
+  }catch(e){
+    toast(`Error al enviar: ${e.message}`,'error',5000);
+    btnBusy('btn-next',false);
+    $('btn-next').innerHTML=S.qIndex===S.preguntas.length-1?'✅ Finalizar Quiz':'Siguiente →';
+    $('btn-next').disabled=false;
+  }
+}
+
+/* ══ RESULTS ══ */
+function buildResultsFromSaved(){
+  const r=S.results;
+  S.results={puntaje:r.puntaje||0,correctas:r.correctas||0,total_preguntas:S.preguntas.length,
+    total_posible:S.preguntas.reduce((s,q)=>s+(q.puntos||10),0),detalles:r.detalles||[],puntaje_grupo:r.puntaje_grupo||0};
+}
+
+function updateResultsUI(){
+  const r=S.results,pct=Math.round((r.correctas/r.total_preguntas)*100);
+  $('res-trophy').textContent=pct>=80?'🏆':pct>=50?'🥈':'🥉';
+  $('res-score').textContent=r.puntaje;
+  $('st-correct').textContent=`${r.correctas}/${r.total_preguntas}`;
+  $('st-grp').textContent=r.puntaje_grupo;
+  $('res-nm').textContent=S.user.nombre;
+  $('res-av').textContent=ii(S.user.nombre);
+  const g = (S.grupos||[]).find(x=>Number(x.id)===Number(S.group)) || {};
+  $('res-grp-icon').textContent = g.emoji || '👥';
+  $('res-grp-name').textContent = g.nombre || 'Tu Grupo';
+  $('res-grp-sub').textContent = `${(g.miembros||[]).length} integrante(s) · Promedio grupal: ${r.puntaje_grupo} pts`;
+
+  const ltrs=['A','B','C','D','E','F'];
+  $('review-list').innerHTML=(r.detalles||[]).map((d,i)=>{
+    const q=S.preguntas[i];
+    const ansText=q?q.opciones[ltrs.indexOf(d.respuesta_dada)]||d.respuesta_dada:d.respuesta_dada;
+    const corrText=q?q.opciones[ltrs.indexOf(q.respuesta_correcta)]||'':'';
+    return`<div class="r-item ${d.es_correcta?'ok':'bad'}">
+      <div class="r-ico">${d.es_correcta?'✅':'❌'}</div>
+      <div style="flex:1">
+        <div class="r-q">Caso ${q?q.casoNum||i+1:i+1}</div>
+        <div class="r-ans">Tu respuesta: <strong>${d.respuesta_dada} – ${ansText}</strong>${!d.es_correcta?` &nbsp;·&nbsp; Correcta: <strong style="color:var(--green)">${q.respuesta_correcta} – ${corrText}</strong>`:''}</div>
+        ${q&&q.explicacion?`<div class="r-exp">💡 ${q.explicacion}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ══ ADMIN ══ */
+async function loadAdmin(){
+  try{
+    const res=await apiGet('getDashboard');
+    if(!res.success) throw new Error(res.error);
+    S.grupos=res.grupos||[];
+    renderAdminGroups(res.grupos||[],res.respuestas||[]);
+    renderRankings(res.grupos||[],res.respuestas||[]);
+  }catch(e){ toast(`Error: ${e.message}`,'error'); }
+}
+
+function renderAdminGroups(grupos,respuestas){
+  const done=new Set(respuestas.map(r=>(r.nombre||'').toLowerCase().trim()));
+  const grid=$('adm-g-grid'); grid.innerHTML='';
+  grupos.forEach(g=>{
+    const cnt=g.miembros.filter(m=>done.has(m.toLowerCase().trim())).length;
+    const pct=g.miembros.length?Math.round((cnt/g.miembros.length)*100):0;
+    const card=document.createElement('div'); card.className='card adm-g-card';
+    card.innerHTML=`
+      <div class="adm-g-hdr"><div class="adm-g-name">${g.emoji||'👥'} ${g.nombre}</div><span class="badge badge-blue">${g.miembros.length}/${g.cupo_max}</span></div>
+      <div style="margin-bottom:10px">
+        <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
+        <div class="adm-prog-lbl">${cnt} de ${g.miembros.length} respondieron</div>
+      </div>
+      ${g.miembros.length===0
+        ?'<div style="color:var(--txt3);font-size:.83rem;text-align:center;padding:10px">Sin integrantes aún</div>'
+        :g.miembros.map(m=>{const ok=done.has(m.toLowerCase().trim());return`<div class="adm-m-row"><span class="adm-m-name">👤 ${m}</span><span class="badge ${ok?'badge-green':'badge-red'}">${ok?'✅ Listo':'⏳ Pendiente'}</span></div>`;}).join('')}`;
+    grid.appendChild(card);
+  });
+}
+
+function renderRankings(grupos,respuestas){
+  const gRanked=grupos.map(g=>{
+    const mem=respuestas.filter(r=>Number(r.id_grupo)===Number(g.id));
+    const avg=mem.length?Math.round(mem.reduce((s,r)=>s+(r.puntaje||0),0)/mem.length):0;
+    return{...g,avg,responded:mem.length};
+  }).sort((a,b)=>b.avg-a.avg);
+  const maxG=Math.max(...gRanked.map(g=>g.avg),1);
+  $('grp-rank-body').innerHTML=gRanked.map((g,i)=>{
+    const cls=i===0?'rn1':i===1?'rn2':i===2?'rn3':'';
+    const med=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    return`<tr><td><span class="rn ${cls}">${med||(i+1)}</span></td><td><strong>${g.emoji||''} ${g.nombre}</strong></td><td>${g.miembros.length}</td><td>${g.responded}</td><td><div class="s-bar-wrap"><div class="s-bar"><div class="s-bar-fill" style="width:${(g.avg/maxG)*100}%"></div></div><span class="s-txt">${g.avg}</span></div></td></tr>`;
+  }).join('');
+  const iRanked=[...respuestas].sort((a,b)=>b.puntaje-a.puntaje);
+  const maxI=Math.max(...iRanked.map(r=>r.puntaje),1);
+  $('ind-rank-body').innerHTML=iRanked.length===0
+    ?'<tr><td colspan="5" style="text-align:center;color:var(--txt3);padding:32px">Sin datos aún</td></tr>'
+    :iRanked.map((r,i)=>{
+        const cls=i===0?'rn1':i===1?'rn2':i===2?'rn3':'';
+        const med=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        const g=grupos.find(x=>Number(x.id)===Number(r.id_grupo))||{};
+        return`<tr><td><span class="rn ${cls}">${med||(i+1)}</span></td><td><strong>👤 ${r.nombre}</strong></td><td>${g.emoji||''} ${g.nombre||'—'}</td><td>${r.correctas||0}/${r.total_preguntas||'?'}</td><td><div class="s-bar-wrap"><div class="s-bar"><div class="s-bar-fill" style="width:${(r.puntaje/maxI)*100}%"></div></div><span class="s-txt">${r.puntaje}</span></div></td></tr>`;
+      }).join('');
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.a-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.a-panel').forEach(p=>p.classList.remove('active'));
+  $(`atab-${tab}`).classList.add('active');
+  $(`apanel-${tab}`).classList.add('active');
+}
+
+/* ══ SETTINGS ══ */
+function openCfg(){
+  $('inp-url').value=SCRIPT_URL;
+  $('cfg-diag').classList.add('hidden');
+  $('modal-cfg').classList.remove('hidden');
+}
+function closeCfg(){$('modal-cfg').classList.add('hidden')}
+
+function saveCfg(){
+  SCRIPT_URL=$('inp-url').value.trim();
+  localStorage.setItem('dq_script_url',SCRIPT_URL);
+  localStorage.setItem('dq_demo',SCRIPT_URL?'0':'1');
+  if(!SCRIPT_URL) toast('Sin URL: la app queda en modo demo y no escribirá en Sheets','warn',5000);
+  else if(!/\/exec$/.test(SCRIPT_URL)) toast('⚠️ La URL debería terminar en /exec (no /dev)','warn',6000);
+  else toast('Configuración guardada ✅','success');
+  closeCfg();
+}
+
+// Verifica de extremo a extremo: URL, permisos, hojas, encabezados y escritura.
+async function testCfg(){
+  const box=$('cfg-diag');
+  const url=$('inp-url').value.trim();
+
+  const pintar=(tono,html)=>{
+    const t={info:['0,212,255','--blue'],ok:['0,232,122','--green'],
+             bad:['255,77,109','--red'],warn:['255,215,0','--gold']}[tono];
+    box.style.background=`rgba(${t[0]},.07)`;
+    box.style.border=`1px solid rgba(${t[0]},.3)`;
+    box.style.color=`var(${t[1]})`;
+    box.innerHTML=html;
+  };
+
+  box.classList.remove('hidden');
+  pintar('info','⏳ Probando conexión…');
+
+  if(!url){
+    pintar('warn','⚡ Sin URL configurada → <strong>modo demo</strong>. Nada se guarda en Google Sheets.');
+    return;
+  }
+
+  const prev=SCRIPT_URL;
+  SCRIPT_URL=url;   // probar la URL escrita, aún sin guardarla
+  try{
+    const d=await apiDiagnostico();
+    if(d.error) throw new Error(d.error);
+
+    const filas=Object.entries(d.hojas||{}).map(([nombre,info])=>{
+      if(!info.existe) return `❌ <strong>${nombre}</strong> — no existe`;
+      const falta=info.columnas_faltantes&&info.columnas_faltantes.length
+        ? ` <span style="color:var(--red)">falta: ${info.columnas_faltantes.join(', ')}</span>` : '';
+      return `✅ <strong>${nombre}</strong> → "${info.nombre_real}" · ${info.filas_datos} fila(s)${falta}`;
+    }).join('<br>');
+
+    const escribe=d.puede_escribir
+      ? '✅ Permiso de escritura confirmado'
+      : `❌ No puede escribir${d.error_escritura?': '+d.error_escritura:''}`;
+
+    pintar(d.success?'ok':'bad',
+      `${d.success?'✅ <strong>Conexión correcta</strong>':'⚠️ <strong>Conectado, con problemas</strong>'}<br>
+       📄 ${d.spreadsheet}<br><br>${filas}<br><br>${escribe}`);
+  }catch(e){
+    pintar('bad',`❌ <strong>Falló la conexión</strong><br>${e.message}`);
+  }finally{
+    SCRIPT_URL=prev;
+  }
+}
+
+/* ══ INIT ══ */
+document.addEventListener('DOMContentLoaded',()=>{
+  $('btn-login').addEventListener('click',handleLogin);
+  $('inp-name').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin()});
+  $('btn-next').addEventListener('click',nextQuestion);
+  $('btn-refresh').addEventListener('click',()=>{loadAdmin();toast('Actualizando…','info')});
+  $('btn-cfg').addEventListener('click',openCfg);
+  $('btn-save-cfg').addEventListener('click',saveCfg);
+  $('btn-test-cfg').addEventListener('click',testCfg);
+  $('btn-close-cfg').addEventListener('click',closeCfg);
+  $('modal-cfg').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCfg()});
+  $('btn-clear-demo').addEventListener('click',()=>{
+    if(confirm('¿Limpiar todos los datos demo?')){
+      ['dq_users','dq_current','dq_group','dq_grp_c'].forEach(k=>localStorage.removeItem(k));
+      closeCfg(); toast('Datos demo eliminados','success');
+    }
+  });
+
+  // Modal de Unión / Personalización de Grupo
+  $('btn-do-join').addEventListener('click',confirmJoin);
+  $('btn-cancel-join').addEventListener('click',cancelJoin);
+  $('btn-cancel-join-x').addEventListener('click',cancelJoin);
+  $('modal-join').addEventListener('click',e=>{if(e.target===e.currentTarget)cancelJoin()});
+  $('join-name-inp').addEventListener('input',onJoinNameInput);
+  $('btn-random-name').addEventListener('click',pickRandomName);
+
+  // Tabs de categorías de emojis/iconos
+  document.querySelectorAll('.ep-tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      document.querySelectorAll('.ep-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      const cat=tab.dataset.cat;
+      PJ.currentCat=cat;
+      renderEmojiPicker(cat,PJ.gEmoji);
+    });
+  });
+
+  // Clic en la insignia del grupo durante el Quiz para editar
+  $('quiz-grp-badge').addEventListener('click',()=>{
+    const g=(S.grupos||[]).find(x=>Number(x.id)===Number(S.group));
+    if(g) openJoinModal(g.id,g.nombre,g.emoji);
+  });
+
+  // Restaurar último usuario ingresado
+  try{const s=JSON.parse(localStorage.getItem('dq_current')||'null');if(s?.nombre)$('inp-name').value=s.nombre;}catch{}
+  if(!SCRIPT_URL) setTimeout(()=>toast('💡 Modo Demo activo · Configura Apps Script en ⚙️ para conectar con Sheets','info',7000),600);
+});
+</script>
+</body>
+</html>
