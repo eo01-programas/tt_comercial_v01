@@ -211,26 +211,34 @@
 <body>
 <div id="toasts"></div>
 
+<!-- ── MODAL: Confirmar salida ── -->
+<div class="overlay hidden" id="modal-salir">
+  <div class="card" style="width:100%;max-width:420px;padding:26px">
+    <h2 style="font-size:1.2rem;margin-bottom:8px">¿Salir del quiz?</h2>
+    <p style="color:var(--txt2);font-size:.9rem;line-height:1.6;margin-bottom:22px">
+      Estás a mitad del quiz. Si sales ahora se pierden las respuestas de este intento.
+    </p>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost btn-full" id="btn-salir-no">Seguir respondiendo</button>
+      <button class="btn btn-primary btn-full" id="btn-salir-si">Sí, salir</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── MODAL: Unirse / Editar equipo ── -->
 <div class="overlay hidden" id="modal-join">
   <div class="card" style="width:100%;max-width:530px;padding:28px;max-height:92vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:5px">
-      <h2 id="join-modal-title" style="font-size:1.3rem">Personalizar equipo</h2>
+      <h2 id="join-modal-title" style="font-size:1.3rem">Elige el icono de tu equipo</h2>
       <button class="btn btn-ghost btn-sm" id="btn-cancel-join-x">✕</button>
     </div>
-    <p style="color:var(--txt2);font-size:.88rem;margin-bottom:18px">Modifica el nombre y elige el icono que representa a tu grupo.</p>
+    <p style="color:var(--txt2);font-size:.88rem;margin-bottom:18px">El nombre del equipo ya está definido. Elige el icono que los representa.</p>
 
     <div class="join-preview-card">
       <div class="join-preview-tag" id="join-preview-tag">Equipo #1</div>
       <span class="join-preview-em" id="join-preview-em">🦅</span>
       <div class="join-preview-name" id="join-preview-name">Equipo</div>
     </div>
-
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-      <label class="lbl" style="margin-bottom:0">Nombre del equipo</label>
-      <button class="btn btn-ghost btn-sm" id="btn-random-name" style="padding:4px 10px;font-size:.75rem" title="Generar idea de nombre">🎲 Sugerir</button>
-    </div>
-    <input type="text" id="join-name-inp" class="inp" placeholder="Ej: Titanes Innovadores" style="margin-bottom:16px" maxlength="35">
 
     <label class="lbl">Selecciona un icono</label>
     <div class="ep-tabs">
@@ -282,7 +290,7 @@
 
   <div class="g-page-head">
     <h1>Elige tu equipo</h1>
-    <p>Selecciona un grupo. Puedes <strong>personalizar su nombre e ícono</strong> al unirte.</p>
+    <p>Selecciona un grupo. Al unirte puedes <strong>elegir el ícono</strong> que los representa.</p>
   </div>
 
   <div class="groups-grid" id="groups-grid">
@@ -298,7 +306,7 @@
       <div class="user-pill">
         <div class="avatar" id="quiz-av">?</div>
         <span id="quiz-nm">Usuario</span>
-        <span class="badge badge-green" id="quiz-grp-badge" style="cursor:pointer" title="Clic para editar nombre e icono">Grupo</span>
+        <span class="badge badge-green" id="quiz-grp-badge" style="cursor:pointer" title="Clic para cambiar el icono del equipo">Grupo</span>
       </div>
       <button class="btn btn-ghost btn-sm btn-salir" data-salir>Salir</button>
     </div>
@@ -413,7 +421,7 @@
 /* ══ CONFIG ══
    URL del Web App de Apps Script (implementación → termina en /exec).
    Si publicas una implementación nueva, reemplaza esta línea. */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwW1RtuimHp-7IkfT4osRBuqm1sbnZV3egUUdC6GJt9wui18C61gjf6muIqEVQ-HpW4/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbztZL8Rl1Yp-xakhRAj-FxT62-J0XXTjZ_bCTwl3bYSl3IH2zFi2x0LGjQBhz_LdrPJ/exec';
 const ADMIN_NAME = 'Robinzon C.';
 
 /* ══ ICONOS ══ */
@@ -423,13 +431,6 @@ const ICON_CATEGORIES = {
   tech:   ['🤖','🧠','💻','⚙️','🧪','🔬','🕹️','💡','📡','🌐','🎲','🧩','♟️','🎭','🎨','🎪','🏎️','✈️','⚓','🔋'],
   logro:  ['🥇','👑','🎖️','🏅','🔥','🎯','✨','🎪','🎩','🛡️','⭐','🌟','🏆','💎','🔮','🎉','🎊','💪','🚀','🌈']
 };
-
-const SUGGESTED_NAMES = [
-  'Águilas Digitales', 'Lobos de Innovación', 'Tigres del Código', 'Leones Ágiles',
-  'Panteras Tech', 'Cóndores Cuánticos', 'Dragones de Datos', 'Fénix Creativo',
-  'Jaguares del Futuro', 'Serpientes de Jade', 'Titanes Analíticos', 'Halcones de Élite',
-  'Cerebros Dinámicos', 'Guardianes del Flow', 'Centellas Rápidas', 'Vórtice Innovador'
-];
 
 /* ══ ESTADO ══ */
 const S = {user:null,group:null,preguntas:[],grupos:[],qIndex:0,answers:{},results:null};
@@ -451,9 +452,9 @@ function toast(msg,type='info',dur=3500){
   $('toasts').appendChild(t);
   setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(110px)';t.style.transition='all .3s';setTimeout(()=>t.remove(),350)},dur);
 }
-function btnBusy(id,on){
+function btnBusy(id,on,texto='Guardando…'){
   const b=$(id); if(!b) return; b.disabled=on;
-  if(on){b._t=b.innerHTML;b.innerHTML='<div class="spin" style="width:16px;height:16px;border-width:2px"></div> Guardando…'}
+  if(on){b._t=b.innerHTML;b.innerHTML=`<div class="spin" style="width:16px;height:16px;border-width:2px"></div> ${texto}`}
   else b.innerHTML=b._t||'';
 }
 function confetti(){
@@ -491,6 +492,33 @@ function buildUrl(action,params={}){
 
 async function apiGet(action,params={}){
   return parseRespuesta(await fetch(buildUrl(action,params),{redirect:'follow'}));
+}
+
+/* ══ PRECARGA ══
+   Apps Script tarda 1-3 s por petición. Preguntas y grupos no dependen de
+   quién se loguea, así que se piden apenas abre la página: para cuando el
+   participante termina de escribir su nombre, ya están listas. */
+const PRE = {preguntas:null, grupos:null};
+
+function precargar(){
+  PRE.preguntas = apiGet('getPreguntas').catch(()=>null);
+  PRE.grupos    = apiGet('getGrupos').catch(()=>null);
+}
+
+// La precarga se consume una sola vez: en la siguiente consulta se pide
+// de nuevo, para no mostrar listas de integrantes desactualizadas.
+async function traer(recurso,campo){
+  const pendiente = PRE[recurso];
+  PRE[recurso] = null;
+  const accion = 'get' + recurso.charAt(0).toUpperCase() + recurso.slice(1);
+
+  let res = pendiente ? await pendiente : null;
+  // Si la precarga falló (corte de red al abrir la página), se reintenta ahora
+  // en vez de dejar al participante bloqueado en el login.
+  if(!res || !res.success) res = await apiGet(accion);
+
+  if(!res.success) throw new Error(res.error || `No se pudieron cargar ${recurso}`);
+  return res[campo];
 }
 
 async function apiPost(action,data={}){
@@ -539,7 +567,7 @@ async function handleLogin(){
     showView('v-admin'); loadAdmin(); return;
   }
 
-  btnBusy('btn-login',true);
+  btnBusy('btn-login',true,'Entrando…');
   try{
     const res=await apiGet('getUsuario',{nombre:name});
     if(!res.success) throw new Error(res.error||'Error');
@@ -548,11 +576,11 @@ async function handleLogin(){
     if(res.usuario&&res.usuario.id_grupo){
       S.group=Number(res.usuario.id_grupo);
       localStorage.setItem('dq_group',String(S.group));
-      // Sin esto, quien vuelve a entrar vería "Tu grupo" en vez de su equipo real.
-      await ensureGrupos();
       if(res.usuario.completado){
         S.results=res.usuario;
-        await loadQuestionsOnly();
+        // En paralelo: sin esto quien vuelve a entrar vería "Tu grupo"
+        // en lugar de su equipo real.
+        await Promise.all([loadQuestionsOnly(), ensureGrupos()]);
         buildResultsFromSaved(); updateResultsUI(); showView('v-results');
       } else { await startQuiz(); }
     } else { await showGroups(name); }
@@ -562,14 +590,50 @@ async function handleLogin(){
   }finally{btnBusy('btn-login',false)}
 }
 
+/* ══ CERRAR SESIÓN ══ */
+
+/* Pide confirmación solo si hay un quiz a medias. Se usa un modal propio y
+   no confirm(): si el navegador tiene activada la casilla "impedir que esta
+   página cree cuadros de diálogo", confirm() devuelve false sin preguntar y
+   el botón Salir parecería no responder. */
+function pedirSalir(){
+  const enQuiz = $('v-quiz').classList.contains('active');
+  if(enQuiz && Object.keys(S.answers).length > 0){
+    $('modal-salir').classList.remove('hidden');
+    return;
+  }
+  logout();
+}
+
+// Devuelve la app al login con el estado limpio, para que el siguiente
+// participante use el mismo equipo sin arrastrar datos del anterior.
+function logout(){
+  $('modal-salir').classList.add('hidden');
+  S.user=null; S.group=null; S.results=null;
+  S.grupos=[]; S.preguntas=[]; S.qIndex=0; S.answers={};
+
+  // dq_current guarda el último nombre para precargarlo: al salir se borra
+  // a propósito, para que el campo quede vacío para la siguiente persona.
+  localStorage.removeItem('dq_current');
+  localStorage.removeItem('dq_group');
+
+  $('modal-join').classList.add('hidden');
+  $('login-err').classList.add('hidden');
+  $('inp-name').value='';
+  showView('v-login');
+  $('inp-name').focus();
+  // Deja preguntas y grupos calentando para el siguiente participante.
+  precargar();
+  toast('Sesión cerrada','info',2500);
+}
+
 /* ══ VISTA GRUPOS ══ */
 // Carga la lista de grupos si aún no está en memoria (login directo al quiz
 // o a resultados, sin pasar por la pantalla de selección de equipo).
 async function ensureGrupos(){
   if(S.grupos&&S.grupos.length) return S.grupos;
   try{
-    const res=await apiGet('getGrupos');
-    if(res.success) S.grupos=res.grupos||[];
+    S.grupos = await traer('grupos','grupos');
   }catch(e){ console.warn('No se pudieron cargar los grupos:',e.message); }
   return S.grupos;
 }
@@ -578,9 +642,8 @@ async function showGroups(name){
   $('grp-nm').textContent=name; $('grp-av').textContent=ii(name);
   showView('v-groups');
   try{
-    const res=await apiGet('getGrupos');
-    if(!res.success) throw new Error(res.error);
-    S.grupos=res.grupos; renderGroups(res.grupos);
+    S.grupos = await traer('grupos','grupos');
+    renderGroups(S.grupos);
   }catch(e){
     $('groups-grid').innerHTML=`<div class="loading"><span style="color:var(--red)">❌ ${esc(e.message)}</span></div>`;
   }
@@ -604,7 +667,7 @@ function renderGroups(grupos){
           <div class="g-emoji-box">${esc(g.emoji)||'👥'}</div>
           <div>
             <div class="g-name">${esc(g.nombre)}</div>
-            <div style="font-size:.76rem;color:var(--txt3)">Haz clic para personalizar e ingresar</div>
+            <div style="font-size:.76rem;color:var(--txt3)">Haz clic para elegir icono e ingresar</div>
           </div>
         </div>
 
@@ -615,7 +678,7 @@ function renderGroups(grupos){
 
         <div class="g-members">
           ${g.miembros.length===0
-            ?'<span style="color:var(--txt3);font-size:.82rem;font-style:italic">Sé el primero en unirte y nombrar a tu equipo</span>'
+            ?'<span style="color:var(--txt3);font-size:.82rem;font-style:italic">Sé el primero en unirte a este equipo</span>'
             :g.miembros.map(m=>`<div class="g-member"><div class="g-dot"></div>${esc(m)}</div>`).join('')}
         </div>
       </div>
@@ -623,7 +686,7 @@ function renderGroups(grupos){
       <div class="g-actions">
         ${full
           ? `<button class="btn btn-ghost btn-full" disabled>🔒 Cupo completo</button>`
-          : `<button class="btn btn-primary btn-full">✏️ Personalizar y unirme</button>`
+          : `<button class="btn btn-primary btn-full">✏️ Elegir icono y unirme</button>`
         }
       </div>`;
 
@@ -643,16 +706,14 @@ function openJoinModal(gId,gName,gEmoji){
 
   Object.assign(PJ,{
     gId: Number(gId),
-    gName: currentName,
+    gName: currentName,      // fijo: el nombre lo define la hoja, no el participante
     gEmoji: currentEmoji,
-    origName: currentName,
     origEmoji: currentEmoji,
     currentCat:'fieras'
   });
 
-  $('join-modal-title').textContent=`Personalizar equipo #${gId}`;
+  $('join-modal-title').textContent=`Equipo #${gId}`;
   $('join-preview-tag').textContent=`Equipo #${gId}`;
-  $('join-name-inp').value=currentName;
   $('join-preview-em').textContent=currentEmoji;
   $('join-preview-name').textContent=currentName;
 
@@ -660,8 +721,6 @@ function openJoinModal(gId,gName,gEmoji){
   renderEmojiPicker('fieras');
 
   $('modal-join').classList.remove('hidden');
-  $('join-name-inp').focus();
-  $('join-name-inp').select();
 }
 
 function renderEmojiPicker(category){
@@ -685,66 +744,46 @@ function renderEmojiPicker(category){
 
 function cancelJoin(){ $('modal-join').classList.add('hidden'); }
 
-function onJoinNameInput(){
-  const v=$('join-name-inp').value.trim();
-  $('join-preview-name').textContent=v||PJ.origName;
-  PJ.gName=v||PJ.origName;
-}
-
-function pickRandomName(){
-  const rnd=SUGGESTED_NAMES[Math.floor(Math.random()*SUGGESTED_NAMES.length)];
-  $('join-name-inp').value=rnd;
-  onJoinNameInput();
-}
-
 async function confirmJoin(){
-  const customName = ($('join-name-inp').value.trim()) || PJ.origName || `Equipo #${PJ.gId}`;
   const customEmoji = PJ.gEmoji || PJ.origEmoji || '👥';
+  const nombreEquipo = PJ.gName || `Equipo #${PJ.gId}`;
   const { gId } = PJ;
 
-  btnBusy('btn-do-join', true);
+  btnBusy('btn-do-join', true, 'Uniéndote…');
   try {
-    // 1. Si aún no está registrado en el grupo, registrarlo
+    /* Una sola petición en el caso normal: registrarUsuario ya aplica el
+       icono dentro de la misma llamada, así que llamar además a
+       actualizarGrupo duplicaba el tiempo de espera sin aportar nada. */
     if (!S.group || Number(S.group) !== Number(gId)) {
       const res = await apiPost('registrarUsuario', {
         nombre: S.user.nombre,
         id_grupo: gId,
-        nombre_grupo: customName,
         emoji: customEmoji
       });
       if (!res.success) throw new Error(res.error || 'Error al unirse al grupo');
       S.group = Number(gId);
       localStorage.setItem('dq_group', String(gId));
+    } else {
+      // Ya es miembro y solo está cambiando el icono desde el quiz.
+      const actRes = await apiPost('actualizarGrupo', { id_grupo: gId, emoji_nuevo: customEmoji });
+      if (!actRes.success && actRes.error) console.warn('actualizarGrupo:', actRes.error);
     }
 
-    // 2. Siempre actualizar el nombre y el emoji del grupo
-    const actRes = await apiPost('actualizarGrupo', {
-      id_grupo: gId,
-      nombre_nuevo: customName,
-      emoji_nuevo: customEmoji,
-      nombre_grupo: customName,
-      emoji: customEmoji
-    });
-    if (!actRes.success && actRes.error) {
-      console.warn('actualizarGrupo:', actRes.error);
-    }
-
-    // 3. Reflejar el cambio en memoria de inmediato
+    // Reflejar el cambio en memoria de inmediato
     let g = (S.grupos||[]).find(x => Number(x.id) === Number(gId));
     if (!g) {
-      g = { id: Number(gId), nombre: customName, emoji: customEmoji, cupo_max: 6, miembros: [S.user.nombre] };
+      g = { id: Number(gId), nombre: nombreEquipo, emoji: customEmoji, cupo_max: 6, miembros: [S.user.nombre] };
       S.grupos.push(g);
     } else {
-      g.nombre = customName;
       g.emoji = customEmoji;
       if (!g.miembros.includes(S.user.nombre)) g.miembros.push(S.user.nombre);
     }
 
     const badge = $('quiz-grp-badge');
-    if (badge) badge.textContent = `${customEmoji} ${customName} ✏️`;
+    if (badge) badge.textContent = `${customEmoji} ${g.nombre} ✏️`;
 
     $('modal-join').classList.add('hidden');
-    toast(`Equipo actualizado: ${customEmoji} ${customName}`, 'success');
+    toast(`Icono actualizado: ${customEmoji} ${g.nombre}`, 'success');
 
     if (!$('v-quiz').classList.contains('active')) await startQuiz();
   } catch(e) {
@@ -756,14 +795,13 @@ async function confirmJoin(){
 
 /* ══ QUIZ ══ */
 async function loadQuestionsOnly(){
-  const res=await apiGet('getPreguntas');
-  if(!res.success) throw new Error(res.error);
-  S.preguntas=res.preguntas;
+  if(S.preguntas.length) return;            // las preguntas no cambian en la sesión
+  S.preguntas = await traer('preguntas','preguntas');
 }
 
 async function startQuiz(){
-  await loadQuestionsOnly();
-  await ensureGrupos();
+  // Las dos peticiones son independientes: en paralelo se ahorra una espera.
+  await Promise.all([loadQuestionsOnly(), ensureGrupos()]);
   S.qIndex=0; S.answers={};
   const g = (S.grupos||[]).find(x=>Number(x.id)===Number(S.group)) || {};
   $('quiz-nm').textContent=S.user.nombre;
@@ -829,7 +867,7 @@ async function submitQuiz(){
     return{id_pregunta:q.id,respuesta_dada:ans,es_correcta:correct,puntos_obtenidos:earned};
   });
   const totalPts=S.preguntas.reduce((s,q)=>s+(q.puntos||10),0);
-  btnBusy('btn-next',true);
+  btnBusy('btn-next',true,'Enviando…');
   try{
     const res=await apiPost('guardarRespuestas',{
       nombre:S.user.nombre,id_grupo:S.group,
@@ -965,6 +1003,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('inp-name').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin()});
   $('btn-next').addEventListener('click',nextQuestion);
   $('btn-refresh').addEventListener('click',()=>{loadAdmin();toast('Actualizando…','info',2000)});
+  document.querySelectorAll('[data-salir]').forEach(b=>b.addEventListener('click',pedirSalir));
+  $('btn-salir-si').addEventListener('click',logout);
+  $('btn-salir-no').addEventListener('click',()=>$('modal-salir').classList.add('hidden'));
+  $('modal-salir').addEventListener('click',e=>{if(e.target===e.currentTarget)$('modal-salir').classList.add('hidden')});
 
   $('atab-groups').addEventListener('click',()=>switchTab('groups'));
   $('atab-scores').addEventListener('click',()=>switchTab('scores'));
@@ -973,8 +1015,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('btn-cancel-join').addEventListener('click',cancelJoin);
   $('btn-cancel-join-x').addEventListener('click',cancelJoin);
   $('modal-join').addEventListener('click',e=>{if(e.target===e.currentTarget)cancelJoin()});
-  $('join-name-inp').addEventListener('input',onJoinNameInput);
-  $('btn-random-name').addEventListener('click',pickRandomName);
 
   document.querySelectorAll('.ep-tab').forEach(tab=>{
     tab.addEventListener('click',()=>{
@@ -993,6 +1033,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // Restaurar el último nombre ingresado
   try{const s=JSON.parse(localStorage.getItem('dq_current')||'null');if(s&&s.nombre)$('inp-name').value=s.nombre;}catch{}
+
+  // Pide preguntas y grupos mientras el participante escribe su nombre.
+  precargar();
 });
 </script>
 </body>
