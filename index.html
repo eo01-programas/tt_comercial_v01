@@ -216,7 +216,7 @@
   <div class="card" style="width:100%;max-width:420px;padding:26px">
     <h2 style="font-size:1.2rem;margin-bottom:8px">¿Salir del quiz?</h2>
     <p style="color:var(--txt2);font-size:.9rem;line-height:1.6;margin-bottom:22px">
-      Estás a mitad del quiz. Si sales ahora se pierden las respuestas de este intento.
+      Estás a mitad del quiz. Si sales ahora se perderán las respuestas de este intento.
     </p>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost btn-full" id="btn-salir-no">Seguir respondiendo</button>
@@ -322,7 +322,7 @@
     <div class="card q-card" id="q-card"></div>
     <div class="opts" id="opts-grid"></div>
     <div class="quiz-footer">
-      <span id="quiz-nav-hint" style="font-size:.82rem;color:var(--txt3)">Selecciona una respuesta para continuar</span>
+      <span id="quiz-nav-hint" style="font-size:.82rem;color:var(--txt3)">Selecciona una respuesta para continuar (o usa teclas 1-6 / A-F)</span>
       <button class="btn btn-primary" id="btn-next" disabled>Siguiente →</button>
     </div>
   </div>
@@ -421,7 +421,7 @@
 /* ══ CONFIG ══
    URL del Web App de Apps Script (implementación → termina en /exec).
    Si publicas una implementación nueva, reemplaza esta línea. */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbztZL8Rl1Yp-xakhRAj-FxT62-J0XXTjZ_bCTwl3bYSl3IH2zFi2x0LGjQBhz_LdrPJ/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz8kl_xIwruDmyJX1p3_dlZ9IV6p0Qs5aAM1WSiZ1yRI8OlAGE71U9iv3mEoyvQyF2Y/exec';
 const ADMIN_NAME = 'Robinzon C.';
 
 /* ══ ICONOS ══ */
@@ -432,239 +432,318 @@ const ICON_CATEGORIES = {
   logro:  ['🥇','👑','🎖️','🏅','🔥','🎯','✨','🎪','🎩','🛡️','⭐','🌟','🏆','💎','🔮','🎉','🎊','💪','🚀','🌈']
 };
 
-/* ══ ESTADO ══ */
-const S = {user:null,group:null,preguntas:[],grupos:[],qIndex:0,answers:{},results:null};
-const PJ = {gId:null,gName:null,gEmoji:null,origName:null,origEmoji:null,currentCat:'fieras'};
+/* ══ ESTADO GLOBAL ══ */
+const S = {
+  user: null,
+  group: null,
+  preguntas: [],
+  grupos: [],
+  qIndex: 0,
+  answers: {},
+  results: null,
+  submitting: false
+};
+
+const PJ = {
+  gId: null,
+  gName: null,
+  gEmoji: null,
+  origName: null,
+  origEmoji: null,
+  currentCat: 'fieras'
+};
 
 /* ══ UTILIDADES ══ */
 const $  = id => document.getElementById(id);
 const ii = n  => (n||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-// Los nombres de equipo los escriben los participantes: se escapan antes de
-// inyectarlos como HTML para que un "<" no rompa la tarjeta.
-const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function showView(id){
-  document.querySelectorAll('.view').forEach(v=>{v.classList.remove('active');v.style.display='none'});
-  const el=$(id); el.style.display='flex'; el.classList.add('active'); window.scrollTo(0,0);
+  document.querySelectorAll('.view').forEach(v => {
+    v.classList.remove('active');
+    v.style.display = 'none';
+  });
+  const el = $(id);
+  if (el) {
+    el.style.display = 'flex';
+    el.classList.add('active');
+  }
+  window.scrollTo(0, 0);
 }
-function toast(msg,type='info',dur=3500){
-  const t=document.createElement('div'); t.className=`toast toast-${type}`; t.textContent=msg;
+
+function toast(msg, type = 'info', dur = 3500){
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
   $('toasts').appendChild(t);
-  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(110px)';t.style.transition='all .3s';setTimeout(()=>t.remove(),350)},dur);
-}
-function btnBusy(id,on,texto='Guardando…'){
-  const b=$(id); if(!b) return; b.disabled=on;
-  if(on){b._t=b.innerHTML;b.innerHTML=`<div class="spin" style="width:16px;height:16px;border-width:2px"></div> ${texto}`}
-  else b.innerHTML=b._t||'';
-}
-function confetti(){
-  const cols=['#15803d','#22c55e','#86efac','#bbf7d0','#0f766e','#4ade80'];
-  for(let i=0;i<80;i++) setTimeout(()=>{
-    const el=document.createElement('div'); el.className='cf';
-    el.style.cssText=`left:${Math.random()*100}vw;width:${Math.random()*8+5}px;height:${Math.random()*8+5}px;background:${cols[~~(Math.random()*cols.length)]};animation-duration:${Math.random()*2+2}s;animation-delay:${Math.random()*.5}s`;
-    document.body.appendChild(el); setTimeout(()=>el.remove(),4500);
-  },i*18);
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(110px)';
+    t.style.transition = 'all .3s';
+    setTimeout(() => t.remove(), 350);
+  }, dur);
 }
 
-/* ══ API ══ */
-
-/* Apps Script responde JSON, pero ante un problema de permisos devuelve el
-   HTML de la pantalla de acceso de Google. Se detecta para dar un error claro. */
-async function parseRespuesta(r){
-  if(!r.ok) throw new Error(`HTTP ${r.status} — ${r.statusText||'sin respuesta'}`);
-  const txt=await r.text();
-  try{
-    return JSON.parse(txt);
-  }catch{
-    if(/<html|Iniciar sesión|Sign in|accounts\.google\.com/i.test(txt)){
-      throw new Error('El Web App pidió inicio de sesión. En Apps Script: Implementar → Gestionar implementaciones → "Quién tiene acceso: Cualquier usuario".');
-    }
-    throw new Error('La respuesta no es JSON válido. ¿La URL termina en /exec? Recibido: '+txt.slice(0,120));
+function btnBusy(id, on, texto = 'Guardando…'){
+  const b = $(id);
+  if (!b) return;
+  b.disabled = on;
+  if (on) {
+    b._t = b.innerHTML;
+    b.innerHTML = `<div class="spin" style="width:16px;height:16px;border-width:2px"></div> ${texto}`;
+  } else {
+    b.innerHTML = b._t || '';
   }
 }
 
-function buildUrl(action,params={}){
-  const url=new URL(SCRIPT_URL);
-  url.searchParams.set('action',action);
-  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+function confetti(){
+  const cols = ['#15803d','#22c55e','#86efac','#bbf7d0','#0f766e','#4ade80'];
+  for (let i = 0; i < 80; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'cf';
+      el.style.cssText = `left:${Math.random()*100}vw;width:${Math.random()*8+5}px;height:${Math.random()*8+5}px;background:${cols[~~(Math.random()*cols.length)]};animation-duration:${Math.random()*2+2}s;animation-delay:${Math.random()*.5}s`;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4500);
+    }, i * 18);
+  }
+}
+
+/* ══ API CON TIMEOUT Y REINTENTO ══ */
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 25000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, credentials: 'omit', signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    if (err.name === 'AbortError') {
+      throw new Error('La conexión tardó demasiado. Por favor verifica tu red e intenta de nuevo.');
+    }
+    throw err;
+  }
+}
+
+async function parseRespuesta(r){
+  if (!r.ok) throw new Error(`HTTP ${r.status} — ${r.statusText || 'sin respuesta'}`);
+  const txt = await r.text();
+  try {
+    return JSON.parse(txt);
+  } catch {
+    if (/<html|Iniciar sesión|Sign in|accounts\.google\.com/i.test(txt)) {
+      throw new Error('El Web App pidió inicio de sesión. En Apps Script: Implementar → Gestionar implementaciones → "Quién tiene acceso: Cualquier usuario".');
+    }
+    throw new Error('La respuesta no es JSON válido. Recibido: ' + txt.slice(0, 120));
+  }
+}
+
+function buildUrl(action, params = {}){
+  const url = new URL(SCRIPT_URL);
+  url.searchParams.set('action', action);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+  });
   return url.toString();
 }
 
-async function apiGet(action,params={}){
-  return parseRespuesta(await fetch(buildUrl(action,params),{redirect:'follow'}));
+async function apiGet(action, params = {}, retryCount = 1){
+  let lastError = null;
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    try {
+      const resp = await fetchWithTimeout(buildUrl(action, params), { redirect: 'follow' });
+      return await parseRespuesta(resp);
+    } catch (err) {
+      lastError = err;
+      if (attempt < retryCount) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+  }
+  throw lastError;
 }
 
-/* ══ PRECARGA ══
-   Apps Script tarda 1-3 s por petición. Preguntas y grupos no dependen de
-   quién se loguea, así que se piden apenas abre la página: para cuando el
-   participante termina de escribir su nombre, ya están listas. */
-const PRE = {preguntas:null, grupos:null};
+async function apiPost(action, data = {}){
+  const payload = JSON.stringify({ action, ...data });
+
+  try {
+    const r = await fetchWithTimeout(SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: payload
+    }, 25000);
+    return await parseRespuesta(r);
+  } catch (errPost) {
+    // Fallback: GET con payload en URL si POST falla por CORS
+    try {
+      const fallbackUrl = buildUrl(action, { payload });
+      const r = await fetchWithTimeout(fallbackUrl, { redirect: 'follow' }, 25000);
+      const res = await parseRespuesta(r);
+      if (action === 'guardarRespuestas' && !res.success && /ya enviaste/i.test(res.error || '')) {
+        return { success: true, puntaje_grupo: 0, reintento: true };
+      }
+      return res;
+    } catch {
+      throw errPost;
+    }
+  }
+}
+
+/* ══ PRECARGA Y CARGA DE RECURSOS ══ */
+const PRE = { preguntas: null, grupos: null };
 
 function precargar(){
-  PRE.preguntas = apiGet('getPreguntas').catch(()=>null);
-  PRE.grupos    = apiGet('getGrupos').catch(()=>null);
+  if (!PRE.preguntas) PRE.preguntas = apiGet('getPreguntas').catch(() => null);
+  if (!PRE.grupos)    PRE.grupos    = apiGet('getGrupos').catch(() => null);
 }
 
-// La precarga se consume una sola vez: en la siguiente consulta se pide
-// de nuevo, para no mostrar listas de integrantes desactualizadas.
-async function traer(recurso,campo){
+async function traer(recurso, campo){
   const pendiente = PRE[recurso];
   PRE[recurso] = null;
   const accion = 'get' + recurso.charAt(0).toUpperCase() + recurso.slice(1);
 
   let res = pendiente ? await pendiente : null;
-  // Si la precarga falló (corte de red al abrir la página), se reintenta ahora
-  // en vez de dejar al participante bloqueado en el login.
-  if(!res || !res.success) res = await apiGet(accion);
+  if (!res || !res.success) {
+    res = await apiGet(accion);
+  }
 
-  if(!res.success) throw new Error(res.error || `No se pudieron cargar ${recurso}`);
+  if (!res.success) throw new Error(res.error || `No se pudieron cargar ${recurso}`);
   return res[campo];
 }
 
-async function apiPost(action,data={}){
-  const payload=JSON.stringify({action,...data});
+async function loadQuestionsOnly(){
+  if (S.preguntas && S.preguntas.length) return S.preguntas;
+  S.preguntas = await traer('preguntas', 'preguntas');
+  return S.preguntas;
+}
 
-  /* 'text/plain' mantiene la petición dentro de las "simple requests" del
-     navegador. Con 'application/json' se dispara un preflight OPTIONS que
-     Apps Script no responde, y la escritura se perdía en silencio.
-     Apps Script recibe el cuerpo igual en e.postData.contents. */
-  try{
-    const r=await fetch(SCRIPT_URL,{
-      method:'POST',
-      redirect:'follow',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:payload
-    });
-    return await parseRespuesta(r);
-  }catch(errPost){
-    // Respaldo: la misma escritura vía GET, que nunca genera preflight.
-    let res;
-    try{
-      res=await parseRespuesta(await fetch(buildUrl(action,{payload}),{redirect:'follow'}));
-    }catch{
-      throw errPost;   // el respaldo también falló: reporta el error original
-    }
-    /* Si el POST llegó a escribir y solo se perdió su respuesta, el reintento
-       choca con la validación de duplicados. Eso significa que los datos SÍ
-       están en Sheets, así que no debe mostrarse como error al participante. */
-    if(action==='guardarRespuestas' && !res.success && /ya enviaste/i.test(res.error||'')){
-      return{success:true,puntaje_grupo:0,reintento:true};
-    }
-    return res;
+async function ensureGrupos(){
+  if (S.grupos && S.grupos.length) return S.grupos;
+  try {
+    S.grupos = await traer('grupos', 'grupos');
+  } catch (e) {
+    console.warn('No se pudieron cargar los grupos:', e.message);
   }
+  return S.grupos || [];
 }
 
 /* ══ LOGIN ══ */
 async function handleLogin(){
-  const name=$('inp-name').value.trim();
-  const errEl=$('login-err');
+  const name = $('inp-name').value.trim();
+  const errEl = $('login-err');
   errEl.classList.add('hidden');
-  if(name.length<2){errEl.textContent='Por favor ingresa tu nombre (mínimo 2 caracteres)';errEl.classList.remove('hidden');return;}
-
-  if(name===ADMIN_NAME){
-    S.user={nombre:name,isAdmin:true};
-    localStorage.setItem('dq_current',JSON.stringify(S.user));
-    showView('v-admin'); loadAdmin(); return;
+  if (name.length < 2) {
+    errEl.textContent = 'Por favor ingresa tu nombre (mínimo 2 caracteres)';
+    errEl.classList.remove('hidden');
+    return;
   }
 
-  btnBusy('btn-login',true,'Entrando…');
-  try{
-    const res=await apiGet('getUsuario',{nombre:name});
-    if(!res.success) throw new Error(res.error||'Error');
-    S.user={nombre:name};
-    localStorage.setItem('dq_current',JSON.stringify(S.user));
-    if(res.usuario&&res.usuario.id_grupo){
-      S.group=Number(res.usuario.id_grupo);
-      localStorage.setItem('dq_group',String(S.group));
-      if(res.usuario.completado){
-        S.results=res.usuario;
-        // En paralelo: sin esto quien vuelve a entrar vería "Tu grupo"
-        // en lugar de su equipo real.
+  if (name.toLowerCase() === ADMIN_NAME.toLowerCase()) {
+    S.user = { nombre: ADMIN_NAME, isAdmin: true };
+    localStorage.setItem('dq_current', JSON.stringify(S.user));
+    showView('v-admin');
+    loadAdmin();
+    return;
+  }
+
+  btnBusy('btn-login', true, 'Entrando…');
+  try {
+    const res = await apiGet('getUsuario', { nombre: name });
+    if (!res.success) throw new Error(res.error || 'Error al conectar');
+
+    S.user = { nombre: name };
+    localStorage.setItem('dq_current', JSON.stringify(S.user));
+
+    if (res.usuario && res.usuario.id_grupo) {
+      S.group = Number(res.usuario.id_grupo);
+      localStorage.setItem('dq_group', String(S.group));
+
+      if (res.usuario.completado) {
+        S.results = res.usuario;
         await Promise.all([loadQuestionsOnly(), ensureGrupos()]);
-        buildResultsFromSaved(); updateResultsUI(); showView('v-results');
-      } else { await startQuiz(); }
-    } else { await showGroups(name); }
-  }catch(e){
-    errEl.textContent=`Error al conectar: ${e.message}`;
+        buildResultsFromSaved();
+        updateResultsUI();
+        showView('v-results');
+      } else {
+        await startQuiz();
+      }
+    } else {
+      await showGroups(name);
+    }
+  } catch (e) {
+    errEl.textContent = `Error al conectar: ${e.message}`;
     errEl.classList.remove('hidden');
-  }finally{btnBusy('btn-login',false)}
+  } finally {
+    btnBusy('btn-login', false);
+  }
 }
 
 /* ══ CERRAR SESIÓN ══ */
-
-/* Pide confirmación solo si hay un quiz a medias. Se usa un modal propio y
-   no confirm(): si el navegador tiene activada la casilla "impedir que esta
-   página cree cuadros de diálogo", confirm() devuelve false sin preguntar y
-   el botón Salir parecería no responder. */
 function pedirSalir(){
   const enQuiz = $('v-quiz').classList.contains('active');
-  if(enQuiz && Object.keys(S.answers).length > 0){
+  if (enQuiz && Object.keys(S.answers).length > 0) {
     $('modal-salir').classList.remove('hidden');
     return;
   }
   logout();
 }
 
-// Devuelve la app al login con el estado limpio, para que el siguiente
-// participante use el mismo equipo sin arrastrar datos del anterior.
 function logout(){
   $('modal-salir').classList.add('hidden');
-  S.user=null; S.group=null; S.results=null;
-  S.grupos=[]; S.preguntas=[]; S.qIndex=0; S.answers={};
+  S.user = null;
+  S.group = null;
+  S.results = null;
+  S.grupos = [];
+  S.preguntas = [];
+  S.qIndex = 0;
+  S.answers = {};
+  S.submitting = false;
 
-  // dq_current guarda el último nombre para precargarlo: al salir se borra
-  // a propósito, para que el campo quede vacío para la siguiente persona.
   localStorage.removeItem('dq_current');
   localStorage.removeItem('dq_group');
 
   $('modal-join').classList.add('hidden');
   $('login-err').classList.add('hidden');
-  $('inp-name').value='';
+  $('inp-name').value = '';
   showView('v-login');
   $('inp-name').focus();
-  // Deja preguntas y grupos calentando para el siguiente participante.
   precargar();
-  toast('Sesión cerrada','info',2500);
+  toast('Sesión cerrada', 'info', 2500);
 }
 
 /* ══ VISTA GRUPOS ══ */
-// Carga la lista de grupos si aún no está en memoria (login directo al quiz
-// o a resultados, sin pasar por la pantalla de selección de equipo).
-async function ensureGrupos(){
-  if(S.grupos&&S.grupos.length) return S.grupos;
-  try{
-    S.grupos = await traer('grupos','grupos');
-  }catch(e){ console.warn('No se pudieron cargar los grupos:',e.message); }
-  return S.grupos;
-}
-
 async function showGroups(name){
-  $('grp-nm').textContent=name; $('grp-av').textContent=ii(name);
+  $('grp-nm').textContent = name;
+  $('grp-av').textContent = ii(name);
   showView('v-groups');
-  try{
-    S.grupos = await traer('grupos','grupos');
+  try {
+    S.grupos = await traer('grupos', 'grupos');
     renderGroups(S.grupos);
-  }catch(e){
-    $('groups-grid').innerHTML=`<div class="loading"><span style="color:var(--red)">❌ ${esc(e.message)}</span></div>`;
+  } catch (e) {
+    $('groups-grid').innerHTML = `<div class="loading"><span style="color:var(--red)">❌ ${esc(e.message)}</span><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="showGroups('${esc(name)}')">Reintentar</button></div>`;
   }
 }
 
 function renderGroups(grupos){
-  const grid=$('groups-grid'); grid.innerHTML='';
-  grupos.forEach(g=>{
-    const full=g.miembros.length>=g.cupo_max;
-    const pct=(g.miembros.length/g.cupo_max)*100;
-    const card=document.createElement('div');
-    card.className=`card g-card${full?' full':''}`;
-    card.innerHTML=`
+  const grid = $('groups-grid');
+  grid.innerHTML = '';
+  grupos.forEach(g => {
+    const full = (g.miembros || []).length >= g.cupo_max;
+    const pct = ((g.miembros || []).length / g.cupo_max) * 100;
+    const card = document.createElement('div');
+    card.className = `card g-card${full ? ' full' : ''}`;
+    card.innerHTML = `
       <div>
         <div class="g-card-top">
           <span class="g-team-num">Equipo #${g.id}</span>
-          <span class="badge ${full?'badge-red':'badge-green'}">${g.miembros.length}/${g.cupo_max} cupos</span>
+          <span class="badge ${full ? 'badge-red' : 'badge-green'}">${(g.miembros||[]).length}/${g.cupo_max} cupos</span>
         </div>
 
         <div class="g-hero-wrap">
-          <div class="g-emoji-box">${esc(g.emoji)||'👥'}</div>
+          <div class="g-emoji-box">${esc(g.emoji) || '👥'}</div>
           <div>
             <div class="g-name">${esc(g.nombre)}</div>
             <div style="font-size:.76rem;color:var(--txt3)">Haz clic para elegir icono e ingresar</div>
@@ -673,13 +752,13 @@ function renderGroups(grupos){
 
         <div class="g-cap">
           <div class="g-cap-bar"><div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div></div>
-          <span class="g-cap-txt">${full?'Lleno':'Disponible'}</span>
+          <span class="g-cap-txt">${full ? 'Lleno' : 'Disponible'}</span>
         </div>
 
         <div class="g-members">
-          ${g.miembros.length===0
-            ?'<span style="color:var(--txt3);font-size:.82rem;font-style:italic">Sé el primero en unirte a este equipo</span>'
-            :g.miembros.map(m=>`<div class="g-member"><div class="g-dot"></div>${esc(m)}</div>`).join('')}
+          ${(g.miembros || []).length === 0
+            ? '<span style="color:var(--txt3);font-size:.82rem;font-style:italic">Sé el primero en unirte a este equipo</span>'
+            : g.miembros.map(m => `<div class="g-member"><div class="g-dot"></div>${esc(m)}</div>`).join('')}
         </div>
       </div>
 
@@ -690,70 +769,72 @@ function renderGroups(grupos){
         }
       </div>`;
 
-    if(!full){
-      card.style.cursor='pointer';
-      card.addEventListener('click',()=>openJoinModal(g.id,g.nombre,g.emoji));
+    if (!full) {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => openJoinModal(g.id, g.nombre, g.emoji));
     }
     grid.appendChild(card);
   });
 }
 
 /* ══ MODAL UNIRSE / PERSONALIZAR ══ */
-function openJoinModal(gId,gName,gEmoji){
-  const liveGrp = (S.grupos||[]).find(x => Number(x.id) === Number(gId));
+function openJoinModal(gId, gName, gEmoji){
+  const liveGrp = (S.grupos || []).find(x => Number(x.id) === Number(gId));
   const currentName = liveGrp ? liveGrp.nombre : gName;
   const currentEmoji = liveGrp ? liveGrp.emoji : gEmoji;
 
-  Object.assign(PJ,{
+  Object.assign(PJ, {
     gId: Number(gId),
-    gName: currentName,      // fijo: el nombre lo define la hoja, no el participante
+    gName: currentName,
     gEmoji: currentEmoji,
     origEmoji: currentEmoji,
-    currentCat:'fieras'
+    currentCat: 'fieras'
   });
 
-  $('join-modal-title').textContent=`Equipo #${gId}`;
-  $('join-preview-tag').textContent=`Equipo #${gId}`;
-  $('join-preview-em').textContent=currentEmoji;
-  $('join-preview-name').textContent=currentName;
+  $('join-modal-title').textContent = `Equipo #${gId}`;
+  $('join-preview-tag').textContent = `Equipo #${gId}`;
+  $('join-preview-em').textContent = currentEmoji;
+  $('join-preview-name').textContent = currentName;
 
-  document.querySelectorAll('.ep-tab').forEach(t=>t.classList.toggle('active',t.dataset.cat==='fieras'));
+  document.querySelectorAll('.ep-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === 'fieras'));
   renderEmojiPicker('fieras');
 
   $('modal-join').classList.remove('hidden');
 }
 
 function renderEmojiPicker(category){
-  const grid=$('emoji-grid'); grid.innerHTML='';
-  const list=ICON_CATEGORIES[category]||ICON_CATEGORIES.fieras;
+  const grid = $('emoji-grid');
+  grid.innerHTML = '';
+  const list = ICON_CATEGORIES[category] || ICON_CATEGORIES.fieras;
 
-  list.forEach(em=>{
-    const btn=document.createElement('button');
-    btn.className='ep-btn'+(em===PJ.gEmoji?' active':'');
-    btn.textContent=em;
-    btn.title=em;
-    btn.addEventListener('click',()=>{
-      document.querySelectorAll('.ep-btn').forEach(b=>b.classList.remove('active'));
+  list.forEach(em => {
+    const btn = document.createElement('button');
+    btn.className = 'ep-btn' + (em === PJ.gEmoji ? ' active' : '');
+    btn.textContent = em;
+    btn.title = em;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      PJ.gEmoji=em;
-      $('join-preview-em').textContent=em;
+      PJ.gEmoji = em;
+      $('join-preview-em').textContent = em;
     });
     grid.appendChild(btn);
   });
 }
 
-function cancelJoin(){ $('modal-join').classList.add('hidden'); }
+function cancelJoin(){
+  $('modal-join').classList.add('hidden');
+}
 
 async function confirmJoin(){
+  if (S.submitting) return;
   const customEmoji = PJ.gEmoji || PJ.origEmoji || '👥';
   const nombreEquipo = PJ.gName || `Equipo #${PJ.gId}`;
   const { gId } = PJ;
 
+  S.submitting = true;
   btnBusy('btn-do-join', true, 'Uniéndote…');
   try {
-    /* Una sola petición en el caso normal: registrarUsuario ya aplica el
-       icono dentro de la misma llamada, así que llamar además a
-       actualizarGrupo duplicaba el tiempo de espera sin aportar nada. */
     if (!S.group || Number(S.group) !== Number(gId)) {
       const res = await apiPost('registrarUsuario', {
         nombre: S.user.nombre,
@@ -764,13 +845,11 @@ async function confirmJoin(){
       S.group = Number(gId);
       localStorage.setItem('dq_group', String(gId));
     } else {
-      // Ya es miembro y solo está cambiando el icono desde el quiz.
       const actRes = await apiPost('actualizarGrupo', { id_grupo: gId, emoji_nuevo: customEmoji });
       if (!actRes.success && actRes.error) console.warn('actualizarGrupo:', actRes.error);
     }
 
-    // Reflejar el cambio en memoria de inmediato
-    let g = (S.grupos||[]).find(x => Number(x.id) === Number(gId));
+    let g = (S.grupos || []).find(x => Number(x.id) === Number(gId));
     if (!g) {
       g = { id: Number(gId), nombre: nombreEquipo, emoji: customEmoji, cupo_max: 6, miembros: [S.user.nombre] };
       S.grupos.push(g);
@@ -786,255 +865,364 @@ async function confirmJoin(){
     toast(`Icono actualizado: ${customEmoji} ${g.nombre}`, 'success');
 
     if (!$('v-quiz').classList.contains('active')) await startQuiz();
-  } catch(e) {
+  } catch (e) {
     toast(`Error: ${e.message}`, 'error', 4500);
   } finally {
+    S.submitting = false;
     btnBusy('btn-do-join', false);
   }
 }
 
 /* ══ QUIZ ══ */
-async function loadQuestionsOnly(){
-  if(S.preguntas.length) return;            // las preguntas no cambian en la sesión
-  S.preguntas = await traer('preguntas','preguntas');
-}
-
 async function startQuiz(){
-  // Las dos peticiones son independientes: en paralelo se ahorra una espera.
   await Promise.all([loadQuestionsOnly(), ensureGrupos()]);
-  S.qIndex=0; S.answers={};
-  const g = (S.grupos||[]).find(x=>Number(x.id)===Number(S.group)) || {};
-  $('quiz-nm').textContent=S.user.nombre;
-  $('quiz-av').textContent=ii(S.user.nombre);
-  $('quiz-grp-badge').textContent=`${g.emoji||'👥'} ${g.nombre||'Mi grupo'} ✏️`;
+  S.qIndex = 0;
+  S.answers = {};
+  const g = (S.grupos || []).find(x => Number(x.id) === Number(S.group)) || {};
+  $('quiz-nm').textContent = S.user.nombre;
+  $('quiz-av').textContent = ii(S.user.nombre);
+  $('quiz-grp-badge').textContent = `${g.emoji || '👥'} ${g.nombre || 'Mi grupo'} ✏️`;
   showView('v-quiz');
   renderQuestion(0);
 }
 
 function renderQuestion(idx){
-  const q=S.preguntas[idx], total=S.preguntas.length;
-  const ltrs=['A','B','C','D','E','F'];
+  if (!S.preguntas || !S.preguntas[idx]) return;
+  const q = S.preguntas[idx];
+  const total = S.preguntas.length;
+  const ltrs = ['A','B','C','D','E','F'];
 
-  $('q-counter').textContent=`Caso ${q.casoNum||idx+1} de ${total}`;
-  $('q-pts').textContent=`${q.puntos||10} pts`;
-  $('q-prog').style.width=`${((idx+1)/total)*100}%`;
+  $('q-counter').textContent = `Caso ${q.casoNum || idx + 1} de ${total}`;
+  $('q-pts').textContent = `${q.puntos || 10} pts`;
+  $('q-prog').style.width = `${((idx + 1) / total) * 100}%`;
 
-  if(q.intro){
-    $('q-card').innerHTML=`
-      <div class="q-label">Caso ${q.casoNum||idx+1}</div>
+  if (q.intro) {
+    $('q-card').innerHTML = `
+      <div class="q-label">Caso ${q.casoNum || idx + 1}</div>
       <div class="q-case-intro">${esc(q.intro)}</div>
       <div class="q-question">${esc(q.texto)}</div>`;
   } else {
-    $('q-card').innerHTML=`<div class="q-label">Pregunta ${idx+1}</div><div class="q-text">${esc(q.texto).replace(/\n/g,'<br>')}</div>`;
+    $('q-card').innerHTML = `<div class="q-label">Pregunta ${idx + 1}</div><div class="q-text">${esc(q.texto).replace(/\n/g,'<br>')}</div>`;
   }
 
-  const grid=$('opts-grid'); grid.innerHTML='';
-  (q.opciones||[]).forEach((op,i)=>{
-    const lt=ltrs[i];
-    const opt=document.createElement('div');
-    opt.className='opt'; opt.id=`opt-${lt}`;
-    opt.innerHTML=`<div class="opt-lt">${lt}</div><div>${esc(op)}</div>`;
-    opt.addEventListener('click',()=>selectAnswer(idx,lt,opt));
+  const grid = $('opts-grid');
+  grid.innerHTML = '';
+  (q.opciones || []).forEach((op, i) => {
+    const lt = ltrs[i];
+    const opt = document.createElement('div');
+    opt.className = 'opt';
+    opt.id = `opt-${lt}`;
+    opt.innerHTML = `<div class="opt-lt">${lt}</div><div>${esc(op)}</div>`;
+    opt.addEventListener('click', () => selectAnswer(idx, lt, opt));
     grid.appendChild(opt);
   });
 
-  if(S.answers[idx]!==undefined){
-    const p=$(`opt-${S.answers[idx]}`); if(p) p.classList.add('sel');
-    $('btn-next').disabled=false;
-  } else { $('btn-next').disabled=true; }
-  $('btn-next').innerHTML=idx===total-1?'Finalizar quiz':'Siguiente →';
-  $('quiz-nav-hint').textContent=S.answers[idx]!==undefined?'':'Selecciona una respuesta para continuar';
+  if (S.answers[idx] !== undefined) {
+    const p = $(`opt-${S.answers[idx]}`);
+    if (p) p.classList.add('sel');
+    $('btn-next').disabled = false;
+  } else {
+    $('btn-next').disabled = true;
+  }
+  $('btn-next').innerHTML = idx === total - 1 ? 'Finalizar quiz' : 'Siguiente →';
+  $('quiz-nav-hint').textContent = S.answers[idx] !== undefined ? '' : 'Selecciona una respuesta para continuar (o usa teclas 1-6 / A-F)';
 }
 
-function selectAnswer(idx,letter,el){
-  document.querySelectorAll('.opt').forEach(o=>o.classList.remove('sel'));
-  el.classList.add('sel');
-  S.answers[idx]=letter;
-  $('btn-next').disabled=false;
-  $('quiz-nav-hint').textContent='';
+function selectAnswer(idx, letter, el){
+  document.querySelectorAll('.opt').forEach(o => o.classList.remove('sel'));
+  if (el) el.classList.add('sel');
+  S.answers[idx] = letter;
+  $('btn-next').disabled = false;
+  $('quiz-nav-hint').textContent = '';
 }
 
 function nextQuestion(){
-  if(S.qIndex<S.preguntas.length-1){S.qIndex++;renderQuestion(S.qIndex);}
-  else submitQuiz();
+  if (S.qIndex < S.preguntas.length - 1) {
+    S.qIndex++;
+    renderQuestion(S.qIndex);
+  } else {
+    submitQuiz();
+  }
 }
 
 async function submitQuiz(){
-  let pts=0,ok=0;
-  const detalles=S.preguntas.map((q,i)=>{
-    const ans=S.answers[i],correct=ans===q.respuesta_correcta,earned=correct?(q.puntos||10):0;
-    if(correct){pts+=earned;ok++;}
-    return{id_pregunta:q.id,respuesta_dada:ans,es_correcta:correct,puntos_obtenidos:earned};
+  if (S.submitting) return;
+  S.submitting = true;
+
+  let pts = 0, ok = 0;
+  const detalles = S.preguntas.map((q, i) => {
+    const ans = String(S.answers[i] || '').trim().toUpperCase();
+    const correctAns = String(q.respuesta_correcta || '').trim().toUpperCase();
+    const correct = ans === correctAns;
+    const earned = correct ? (q.puntos || 10) : 0;
+    if (correct) { pts += earned; ok++; }
+    return { id_pregunta: q.id, respuesta_dada: ans, es_correcta: correct, puntos_obtenidos: earned };
   });
-  const totalPts=S.preguntas.reduce((s,q)=>s+(q.puntos||10),0);
-  btnBusy('btn-next',true,'Enviando…');
-  try{
-    const res=await apiPost('guardarRespuestas',{
-      nombre:S.user.nombre,id_grupo:S.group,
-      puntaje_total:pts,correctas:ok,
-      total_preguntas:S.preguntas.length,total_posible:totalPts,detalles
+
+  const totalPts = S.preguntas.reduce((s, q) => s + (q.puntos || 10), 0);
+  btnBusy('btn-next', true, 'Enviando…');
+
+  try {
+    const res = await apiPost('guardarRespuestas', {
+      nombre: S.user.nombre,
+      id_grupo: S.group,
+      puntaje_total: pts,
+      correctas: ok,
+      total_preguntas: S.preguntas.length,
+      total_posible: totalPts,
+      detalles: detalles
     });
-    if(!res.success) throw new Error(res.error||'Error');
-    S.results={puntaje:pts,correctas:ok,total_preguntas:S.preguntas.length,
-      total_posible:totalPts,detalles,puntaje_grupo:res.puntaje_grupo||0};
-    updateResultsUI(); showView('v-results');
-    if(Math.round((ok/S.preguntas.length)*100)>=60) setTimeout(confetti,300);
-  }catch(e){
-    toast(`Error al enviar: ${e.message}`,'error',5000);
-    btnBusy('btn-next',false);
-    $('btn-next').innerHTML=S.qIndex===S.preguntas.length-1?'Finalizar quiz':'Siguiente →';
-    $('btn-next').disabled=false;
+    if (!res.success) throw new Error(res.error || 'Error al guardar respuestas');
+
+    S.results = {
+      puntaje: pts,
+      correctas: ok,
+      total_preguntas: S.preguntas.length,
+      total_posible: totalPts,
+      detalles: detalles,
+      puntaje_grupo: res.puntaje_grupo || 0
+    };
+
+    updateResultsUI();
+    showView('v-results');
+    if (Math.round((ok / S.preguntas.length) * 100) >= 60) setTimeout(confetti, 300);
+  } catch (e) {
+    toast(`Error al enviar: ${e.message}`, 'error', 5000);
+    btnBusy('btn-next', false);
+    $('btn-next').innerHTML = S.qIndex === S.preguntas.length - 1 ? 'Finalizar quiz' : 'Siguiente →';
+    $('btn-next').disabled = false;
+  } finally {
+    S.submitting = false;
   }
 }
 
 /* ══ RESULTADOS ══ */
 function buildResultsFromSaved(){
-  const r=S.results;
-  S.results={puntaje:r.puntaje||0,correctas:r.correctas||0,total_preguntas:S.preguntas.length,
-    total_posible:S.preguntas.reduce((s,q)=>s+(q.puntos||10),0),detalles:r.detalles||[],puntaje_grupo:r.puntaje_grupo||0};
+  const r = S.results || {};
+  S.results = {
+    puntaje:         Number(r.puntaje) || 0,
+    correctas:       Number(r.correctas) || 0,
+    total_preguntas: S.preguntas.length || Number(r.total_preguntas) || 6,
+    total_posible:   S.preguntas.reduce((s, q) => s + (q.puntos || 10), 0) || 60,
+    detalles:        Array.isArray(r.detalles) ? r.detalles : [],
+    puntaje_grupo:   Number(r.puntaje_grupo) || 0
+  };
 }
 
 function updateResultsUI(){
-  const r=S.results,pct=Math.round((r.correctas/r.total_preguntas)*100);
-  $('res-trophy').textContent=pct>=80?'🏆':pct>=50?'🥈':'🥉';
-  $('res-score').textContent=r.puntaje;
-  $('st-correct').textContent=`${r.correctas}/${r.total_preguntas}`;
-  $('st-grp').textContent=r.puntaje_grupo;
-  $('res-nm').textContent=S.user.nombre;
-  $('res-av').textContent=ii(S.user.nombre);
-  const g = (S.grupos||[]).find(x=>Number(x.id)===Number(S.group)) || {};
+  const r = S.results || {};
+  const totalQ = r.total_preguntas || (S.preguntas ? S.preguntas.length : 6);
+  const pct = totalQ > 0 ? Math.round(((r.correctas || 0) / totalQ) * 100) : 0;
+
+  $('res-trophy').textContent = pct >= 80 ? '🏆' : pct >= 50 ? '🥈' : '🥉';
+  $('res-score').textContent = r.puntaje || 0;
+  $('st-correct').textContent = `${r.correctas || 0}/${totalQ}`;
+  $('st-grp').textContent = r.puntaje_grupo != null ? r.puntaje_grupo : 0;
+  $('res-nm').textContent = S.user ? S.user.nombre : 'Participante';
+  $('res-av').textContent = ii(S.user ? S.user.nombre : '');
+
+  const g = (S.grupos || []).find(x => Number(x.id) === Number(S.group)) || {};
   $('res-grp-icon').textContent = g.emoji || '👥';
   $('res-grp-name').textContent = g.nombre || 'Tu grupo';
-  $('res-grp-sub').textContent = `${(g.miembros||[]).length} integrante(s) · Promedio grupal: ${r.puntaje_grupo} pts`;
+  $('res-grp-sub').textContent = `${(g.miembros || []).length} integrante(s) · Promedio grupal: ${r.puntaje_grupo || 0} pts`;
 
-  const ltrs=['A','B','C','D','E','F'];
-  $('review-list').innerHTML=(r.detalles||[]).map((d,i)=>{
-    const q=S.preguntas[i];
-    const ansText=q?q.opciones[ltrs.indexOf(d.respuesta_dada)]||d.respuesta_dada:d.respuesta_dada;
-    const corrText=q?q.opciones[ltrs.indexOf(q.respuesta_correcta)]||'':'';
-    return`<div class="r-item ${d.es_correcta?'ok':'bad'}">
-      <div class="r-ico">${d.es_correcta?'✅':'❌'}</div>
-      <div style="flex:1">
-        <div class="r-q">Caso ${q?q.casoNum||i+1:i+1}</div>
-        <div class="r-ans">Tu respuesta: <strong>${esc(d.respuesta_dada)} – ${esc(ansText)}</strong>${!d.es_correcta?` · Correcta: <strong class="g-txt">${esc(q.respuesta_correcta)} – ${esc(corrText)}</strong>`:''}</div>
-        ${q&&q.explicacion?`<div class="r-exp">💡 ${esc(q.explicacion)}</div>`:''}
-      </div>
-    </div>`;
+  const ltrs = ['A','B','C','D','E','F'];
+  const detalles = r.detalles || [];
+
+  if (detalles.length === 0) {
+    $('review-list').innerHTML = `
+      <div style="text-align:center;padding:18px;color:var(--txt2);font-size:.9rem">
+        ¡Quiz completado con éxito! Tuviste <strong>${r.correctas || 0}</strong> de <strong>${totalQ}</strong> respuestas correctas.
+      </div>`;
+    return;
+  }
+
+  $('review-list').innerHTML = detalles.map((d, i) => {
+    // Buscar la pregunta correspondiente por id_pregunta exacto
+    const q = (S.preguntas || []).find(p => Number(p.id) === Number(d.id_pregunta)) || (S.preguntas ? S.preguntas[i] : null);
+    const ansIdx = ltrs.indexOf(d.respuesta_dada);
+    const ansText = (q && q.opciones && ansIdx >= 0) ? q.opciones[ansIdx] : d.respuesta_dada;
+    
+    const corrAns = q ? String(q.respuesta_correcta || '').trim().toUpperCase() : '';
+    const corrIdx = ltrs.indexOf(corrAns);
+    const corrText = (q && q.opciones && corrIdx >= 0) ? q.opciones[corrIdx] : corrAns;
+
+    return `
+      <div class="r-item ${d.es_correcta ? 'ok' : 'bad'}">
+        <div class="r-ico">${d.es_correcta ? '✅' : '❌'}</div>
+        <div style="flex:1">
+          <div class="r-q">Caso ${q ? q.casoNum || i + 1 : i + 1}</div>
+          <div class="r-ans">Tu respuesta: <strong>${esc(d.respuesta_dada)}${ansText ? ' – ' + esc(ansText) : ''}</strong>${!d.es_correcta ? ` · Correcta: <strong class="g-txt">${esc(corrAns)}${corrText ? ' – ' + esc(corrText) : ''}</strong>` : ''}</div>
+          ${q && q.explicacion ? `<div class="r-exp">💡 ${esc(q.explicacion)}</div>` : ''}
+        </div>
+      </div>`;
   }).join('');
 }
 
 /* ══ ADMIN ══ */
 async function loadAdmin(){
-  try{
-    const res=await apiGet('getDashboard');
-    if(!res.success) throw new Error(res.error);
-    S.grupos=res.grupos||[];
-    renderAdminGroups(res.grupos||[],res.respuestas||[]);
-    renderRankings(res.grupos||[],res.respuestas||[]);
-  }catch(e){ toast(`Error: ${e.message}`,'error',5000); }
+  btnBusy('btn-refresh', true, 'Actualizando…');
+  try {
+    const res = await apiGet('getDashboard');
+    if (!res.success) throw new Error(res.error);
+    S.grupos = res.grupos || [];
+    renderAdminGroups(res.grupos || [], res.respuestas || []);
+    renderRankings(res.grupos || [], res.respuestas || []);
+  } catch (e) {
+    toast(`Error: ${e.message}`, 'error', 5000);
+  } finally {
+    btnBusy('btn-refresh', false);
+    $('btn-refresh').innerHTML = '🔄 Actualizar';
+  }
 }
 
-function renderAdminGroups(grupos,respuestas){
-  const done=new Set(respuestas.map(r=>(r.nombre||'').toLowerCase().trim()));
-  const grid=$('adm-g-grid'); grid.innerHTML='';
-  grupos.forEach(g=>{
-    const cnt=g.miembros.filter(m=>done.has(m.toLowerCase().trim())).length;
-    const pct=g.miembros.length?Math.round((cnt/g.miembros.length)*100):0;
-    const card=document.createElement('div'); card.className='card adm-g-card';
-    card.innerHTML=`
-      <div class="adm-g-hdr"><div class="adm-g-name">${esc(g.emoji)||'👥'} ${esc(g.nombre)}</div><span class="badge badge-grey">${g.miembros.length}/${g.cupo_max}</span></div>
+function renderAdminGroups(grupos, respuestas){
+  const done = new Set((respuestas || []).map(r => (r.nombre || '').toLowerCase().trim()));
+  const grid = $('adm-g-grid');
+  grid.innerHTML = '';
+
+  grupos.forEach(g => {
+    const miembros = g.miembros || [];
+    const cnt = miembros.filter(m => done.has(m.toLowerCase().trim())).length;
+    const pct = miembros.length ? Math.round((cnt / miembros.length) * 100) : 0;
+    const card = document.createElement('div');
+    card.className = 'card adm-g-card';
+    card.innerHTML = `
+      <div class="adm-g-hdr"><div class="adm-g-name">${esc(g.emoji) || '👥'} ${esc(g.nombre)}</div><span class="badge badge-grey">${miembros.length}/${g.cupo_max}</span></div>
       <div style="margin-bottom:10px">
         <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
-        <div class="adm-prog-lbl">${cnt} de ${g.miembros.length} respondieron</div>
+        <div class="adm-prog-lbl">${cnt} de ${miembros.length} respondieron</div>
       </div>
-      ${g.miembros.length===0
-        ?'<div style="color:var(--txt3);font-size:.83rem;text-align:center;padding:10px">Sin integrantes aún</div>'
-        :g.miembros.map(m=>{const ok=done.has(m.toLowerCase().trim());return`<div class="adm-m-row"><span>👤 ${esc(m)}</span><span class="badge ${ok?'badge-green':'badge-grey'}">${ok?'✅ Listo':'⏳ Pendiente'}</span></div>`;}).join('')}`;
+      ${miembros.length === 0
+        ? '<div style="color:var(--txt3);font-size:.83rem;text-align:center;padding:10px">Sin integrantes aún</div>'
+        : miembros.map(m => {
+            const ok = done.has(m.toLowerCase().trim());
+            return `<div class="adm-m-row"><span>👤 ${esc(m)}</span><span class="badge ${ok ? 'badge-green' : 'badge-grey'}">${ok ? '✅ Listo' : '⏳ Pendiente'}</span></div>`;
+          }).join('')}`;
     grid.appendChild(card);
   });
 }
 
-function renderRankings(grupos,respuestas){
-  const medalla=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+function renderRankings(grupos, respuestas){
+  const medalla = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 
-  const gRanked=grupos.map(g=>{
-    const mem=respuestas.filter(r=>Number(r.id_grupo)===Number(g.id));
-    const avg=mem.length?Math.round(mem.reduce((s,r)=>s+(r.puntaje||0),0)/mem.length):0;
-    return{...g,avg,responded:mem.length};
-  }).sort((a,b)=>b.avg-a.avg);
-  const maxG=Math.max(...gRanked.map(g=>g.avg),1);
+  const gRanked = grupos.map(g => {
+    const mem = (respuestas || []).filter(r => Number(r.id_grupo) === Number(g.id));
+    const avg = mem.length ? Math.round(mem.reduce((s, r) => s + (r.puntaje || 0), 0) / mem.length) : 0;
+    return { ...g, avg, responded: mem.length };
+  }).sort((a, b) => b.avg - a.avg);
 
-  $('grp-rank-body').innerHTML=gRanked.length===0
-    ?'<tr><td colspan="5" class="empty-row">Sin datos aún</td></tr>'
-    :gRanked.map((g,i)=>`<tr>
+  const maxG = Math.max(...gRanked.map(g => g.avg), 1);
+
+  $('grp-rank-body').innerHTML = gRanked.length === 0
+    ? '<tr><td colspan="5" class="empty-row">Sin datos aún</td></tr>'
+    : gRanked.map((g, i) => `<tr>
         <td><span class="rn">${medalla(i)}</span></td>
         <td><strong>${esc(g.emoji)} ${esc(g.nombre)}</strong></td>
-        <td>${g.miembros.length}</td>
+        <td>${(g.miembros||[]).length}</td>
         <td>${g.responded}</td>
-        <td><div class="s-bar-wrap"><div class="s-bar"><div class="s-bar-fill" style="width:${(g.avg/maxG)*100}%"></div></div><span class="s-txt">${g.avg}</span></div></td>
+        <td><div class="s-bar-wrap"><div class="s-bar"><div class="s-bar-fill" style="width:${(g.avg / maxG) * 100}%"></div></div><span class="s-txt">${g.avg}</span></div></td>
       </tr>`).join('');
 
-  const iRanked=[...respuestas].sort((a,b)=>b.puntaje-a.puntaje);
-  const maxI=Math.max(...iRanked.map(r=>r.puntaje),1);
-  $('ind-rank-body').innerHTML=iRanked.length===0
-    ?'<tr><td colspan="5" class="empty-row">Sin datos aún</td></tr>'
-    :iRanked.map((r,i)=>{
-        const g=grupos.find(x=>Number(x.id)===Number(r.id_grupo))||{};
-        return`<tr>
+  const iRanked = [...(respuestas || [])].sort((a, b) => b.puntaje - a.puntaje);
+  const maxI = Math.max(...iRanked.map(r => r.puntaje), 1);
+
+  $('ind-rank-body').innerHTML = iRanked.length === 0
+    ? '<tr><td colspan="5" class="empty-row">Sin datos aún</td></tr>'
+    : iRanked.map((r, i) => {
+        const g = grupos.find(x => Number(x.id) === Number(r.id_grupo)) || {};
+        return `<tr>
           <td><span class="rn">${medalla(i)}</span></td>
           <td><strong>👤 ${esc(r.nombre)}</strong></td>
-          <td>${esc(g.emoji||'')} ${esc(g.nombre||'—')}</td>
-          <td>${r.correctas||0}/${r.total_preguntas||'?'}</td>
-          <td><div class="s-bar-wrap"><div class="s-bar"><div class="s-bar-fill" style="width:${(r.puntaje/maxI)*100}%"></div></div><span class="s-txt">${r.puntaje}</span></div></td>
+          <td>${esc(g.emoji || '')} ${esc(g.nombre || '—')}</td>
+          <td>${r.correctas || 0}/${r.total_preguntas || '?'}</td>
+          <td><div class="s-bar-wrap"><div class="s-bar"><div class="s-bar-fill" style="width:${(r.puntaje / maxI) * 100}%"></div></div><span class="s-txt">${r.puntaje}</span></div></td>
         </tr>`;
       }).join('');
 }
 
 function switchTab(tab){
-  document.querySelectorAll('.a-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.a-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.a-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.a-panel').forEach(p => p.classList.remove('active'));
   $(`atab-${tab}`).classList.add('active');
   $(`apanel-${tab}`).classList.add('active');
 }
 
+/* ══ ATAJOS DE TECLADO ══ */
+document.addEventListener('keydown', e => {
+  if (!$('v-quiz').classList.contains('active')) return;
+  if ($('modal-salir') && !$('modal-salir').classList.contains('hidden')) return;
+
+  const key = e.key.toUpperCase();
+  const ltrs = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const numIdx = parseInt(e.key, 10);
+
+  let targetLt = null;
+  if (ltrs.includes(key)) {
+    targetLt = key;
+  } else if (!isNaN(numIdx) && numIdx >= 1 && numIdx <= 6) {
+    targetLt = ltrs[numIdx - 1];
+  }
+
+  if (targetLt) {
+    const optEl = $(`opt-${targetLt}`);
+    if (optEl) {
+      e.preventDefault();
+      selectAnswer(S.qIndex, targetLt, optEl);
+    }
+  } else if (e.key === 'Enter') {
+    const btnNext = $('btn-next');
+    if (btnNext && !btnNext.disabled && !S.submitting) {
+      e.preventDefault();
+      nextQuestion();
+    }
+  }
+});
+
 /* ══ INIT ══ */
-document.addEventListener('DOMContentLoaded',()=>{
-  $('btn-login').addEventListener('click',handleLogin);
-  $('inp-name').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin()});
-  $('btn-next').addEventListener('click',nextQuestion);
-  $('btn-refresh').addEventListener('click',()=>{loadAdmin();toast('Actualizando…','info',2000)});
-  document.querySelectorAll('[data-salir]').forEach(b=>b.addEventListener('click',pedirSalir));
-  $('btn-salir-si').addEventListener('click',logout);
-  $('btn-salir-no').addEventListener('click',()=>$('modal-salir').classList.add('hidden'));
-  $('modal-salir').addEventListener('click',e=>{if(e.target===e.currentTarget)$('modal-salir').classList.add('hidden')});
+document.addEventListener('DOMContentLoaded', () => {
+  $('btn-login').addEventListener('click', handleLogin);
+  $('inp-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin();
+  });
+  $('btn-next').addEventListener('click', nextQuestion);
+  $('btn-refresh').addEventListener('click', loadAdmin);
+  document.querySelectorAll('[data-salir]').forEach(b => b.addEventListener('click', pedirSalir));
+  $('btn-salir-si').addEventListener('click', logout);
+  $('btn-salir-no').addEventListener('click', () => $('modal-salir').classList.add('hidden'));
+  $('modal-salir').addEventListener('click', e => {
+    if (e.target === e.currentTarget) $('modal-salir').classList.add('hidden');
+  });
 
-  $('atab-groups').addEventListener('click',()=>switchTab('groups'));
-  $('atab-scores').addEventListener('click',()=>switchTab('scores'));
+  $('atab-groups').addEventListener('click', () => switchTab('groups'));
+  $('atab-scores').addEventListener('click', () => switchTab('scores'));
 
-  $('btn-do-join').addEventListener('click',confirmJoin);
-  $('btn-cancel-join').addEventListener('click',cancelJoin);
-  $('btn-cancel-join-x').addEventListener('click',cancelJoin);
-  $('modal-join').addEventListener('click',e=>{if(e.target===e.currentTarget)cancelJoin()});
+  $('btn-do-join').addEventListener('click', confirmJoin);
+  $('btn-cancel-join').addEventListener('click', cancelJoin);
+  $('btn-cancel-join-x').addEventListener('click', cancelJoin);
+  $('modal-join').addEventListener('click', e => {
+    if (e.target === e.currentTarget) cancelJoin();
+  });
 
-  document.querySelectorAll('.ep-tab').forEach(tab=>{
-    tab.addEventListener('click',()=>{
-      document.querySelectorAll('.ep-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.ep-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.ep-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      PJ.currentCat=tab.dataset.cat;
+      PJ.currentCat = tab.dataset.cat;
       renderEmojiPicker(tab.dataset.cat);
     });
   });
 
-  // Clic en la insignia del grupo durante el quiz para editarlo
-  $('quiz-grp-badge').addEventListener('click',()=>{
-    const g=(S.grupos||[]).find(x=>Number(x.id)===Number(S.group));
-    if(g) openJoinModal(g.id,g.nombre,g.emoji);
+  $('quiz-grp-badge').addEventListener('click', () => {
+    const g = (S.grupos || []).find(x => Number(x.id) === Number(S.group));
+    if (g) openJoinModal(g.id, g.nombre, g.emoji);
   });
 
-  // Restaurar el último nombre ingresado
-  try{const s=JSON.parse(localStorage.getItem('dq_current')||'null');if(s&&s.nombre)$('inp-name').value=s.nombre;}catch{}
+  try {
+    const s = JSON.parse(localStorage.getItem('dq_current') || 'null');
+    if (s && s.nombre) $('inp-name').value = s.nombre;
+  } catch {}
 
-  // Pide preguntas y grupos mientras el participante escribe su nombre.
   precargar();
 });
 </script>
